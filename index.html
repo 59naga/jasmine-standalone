@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>via http://jasmine.github.io/2.1/introduction.html</title>
+  <script src="jasmine.min.all.js"></script>
+  <script>
+    describe('Specs',function(){
+      describe('first',function(){
+        it('Begin bdd.',function(){
+          expect("hello world!").toMatch('hell');
+        });
+        it('End of bdd.',function(){
+          expect("world end!").not.toMatch('hell');
+        });
+      });
+    });
+  </script>
+</head>
+</html>
