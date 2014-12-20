@@ -8,14 +8,14 @@ uglifycss= require 'gulp-uglifycss'
 wrap_link= require 'gulp-wrap-link'
 
 #require unzipped dir
-jasmine= 'jasmine-standalone-2.1.3/lib/jasmine-2.1.3'
+jasmine= 'bower_components/jasmine/dist/jasmine-standalone-2.1.3/lib/jasmine-2.1.3'
 jasmine_order= [
   "jasmine.js"
   "jasmine-html.js"
   "boot.js"
   "jasmine.css.js"
 ]
-jasmine_all= 'jasmine.min.all.js'
+jasmine_all= 'jasmine-standalone.js'
 jasmine_all_regexp= /jasmine\.min(\.css)?\.js$/
 
 gulp.task 'default',['ugilify'],->

@@ -1,16 +1,19 @@
 {
   "name": "jasmine-standalone",
+  "main": "./jasmine-standalone.js",
   "version": "2.1.3",
   "homepage": "https://github.com/59naga/jasmine-standalone",
   "authors": [
     "59naga <i59naga@icloud.com>"
   ],
   "description": "uglified js & css > jasmin.min.all.js",
-  "main": "jasmin.min.all.js",
   "keywords": [
     "jasmine",
     "standalone",
     "main-bower-files"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "jasmine": "~2.1.3"
+  }
 }

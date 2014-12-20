@@ -1,8 +1,8 @@
 {
   "name": "jasmine-standalone",
+  "main": "./jasmine-standalone.js",
   "version": "0.0.1",
   "description": "jasmine-standalone-2.1.3 for main-bower-files",
-  "main": "jasmine.min.all.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
