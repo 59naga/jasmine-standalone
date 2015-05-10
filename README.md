@@ -33,6 +33,10 @@ index.html:
 </script>
 ```
 
+Becomes:
+
+![2015-05-10 13 15 59](https://cloud.githubusercontent.com/assets/1548478/7553053/c5c8c3fa-f716-11e4-9eb6-00c0cd23aa6d.png)
+
 ## API
 
 > http://jasmine.github.io/2.3/introduction.html
@@ -49,5 +53,5 @@ License
 
 [License]: http://59naga.mit-license.org/
 
-[bower-image]: https://badge.fury.io/bo/jaggy.svg
-[bower]: http://badge.fury.io/bo/jaggy
+[bower-image]: https://badge.fury.io/bo/jasmine-standalone.svg
+[bower]: http://badge.fury.io/bo/jasmine-standalone
