@@ -1,19 +1,28 @@
 {
   "name": "jasmine-standalone",
   "main": "jasmine-standalone.js",
+  "description": "Jasmine-browser full-stack file.",
   "version": "2.3.2",
+
+  "devDependencies": {
+    "jasmine": "2.3.2"
+  },
+  
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test"
+  ],
+
   "homepage": "https://github.com/59naga/jasmine-standalone",
   "authors": [
     "59naga <i59naga@icloud.com>"
   ],
-  "description": "uglified js & css > jasmin.min.all.js",
   "keywords": [
     "jasmine",
     "standalone",
     "main-bower-files"
   ],
-  "license": "MIT",
-  "devDependencies": {
-    "jasmine": "2.3.2"
-  }
+  "license": "MIT"
 }

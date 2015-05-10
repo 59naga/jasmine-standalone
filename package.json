@@ -1,8 +1,9 @@
 {
   "name": "jasmine-standalone",
   "main": "jasmine-standalone.js",
+  "description": "Jasmine-browser full-stack file.",
   "private": true,
-  "description": "jasmine-standalone-2.3.2 for main-bower-files",
+  
   "scripts": {
     "build": "gulp",
     "postbuild": "uglifyjs jasmine-standalone.js --compres --mangle --source-map jasmine-standalone.min.js.map --source-map-url jasmine-standalone.min.js.map --output jasmine-standalone.min.js",
