@@ -10,6 +10,7 @@ $ bower install jasmine-standalone
 index.html:
 
 ```html
+<script src="https://code.jquery.com/jquery-1.11.3.js"></script>
 <script src="bower_components/jasmine-standalone/jasmine-standalone.js"></script>
 <script>
   describe('XMLHttpRequest',function(){
