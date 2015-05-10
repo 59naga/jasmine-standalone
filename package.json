@@ -7,7 +7,7 @@
     "build": "gulp",
     "postbuild": "uglifyjs jasmine-standalone.js --compres --mangle --source-map jasmine-standalone.min.js.map --source-map-url jasmine-standalone.min.js.map --output jasmine-standalone.min.js",
 
-    "update": "git tag v$(jqn bower version) && git push --tags",
+    "update": "git tag v$(jqn bower version) && git push --tags"
   },
 
   "devDependencies": {
