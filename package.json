@@ -1,34 +1,38 @@
 {
   "name": "jasmine-standalone",
-  "main": "./jasmine-standalone.js",
-  "version": "0.0.2",
-  "description": "jasmine-standalone-2.1.3 for main-bower-files",
+  "main": "jasmine-standalone.js",
+  "private": true,
+  "description": "jasmine-standalone-2.3.2 for main-bower-files",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "gulp",
+    "postbuild": "uglifyjs jasmine-standalone.js --compres --mangle --source-map jasmine-standalone.min.js.map --source-map-url jasmine-standalone.min.js.map --output jasmine-standalone.min.js",
+
+    "update": "git tag v$(jqn bower version) && git push --tags",
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/59naga/jasmine-standalone.git"
+
+  "devDependencies": {
+    "coffee-script": "^1.8.0",
+    "gulp": "^3.8.10",
+    "gulp-concat": "^2.4.2",
+    "gulp-jsfy": "^0.1.5-rc.1",
+    "gulp-order": "^1.1.1",
+    "jqn": "0.0.3",
+    "uglify-js": "^2.4.21"
   },
+  
   "keywords": [
     "jasmine",
     "standalone",
     "main-bower-files"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/59naga/jasmine-standalone.git"
+  },
   "author": "59naga",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/59naga/jasmine-standalone/issues"
   },
-  "homepage": "https://github.com/59naga/jasmine-standalone",
-  "devDependencies": {
-    "coffee-script": "^1.8.0",
-    "gulp": "^3.8.10",
-    "gulp-concat": "^2.4.2",
-    "gulp-filter": "^1.0.2",
-    "gulp-order": "^1.1.1",
-    "gulp-uglify": "^1.0.2",
-    "gulp-uglifycss": "^1.0.4",
-    "gulp-wrap-link": "0.0.1"
-  }
+  "homepage": "https://github.com/59naga/jasmine-standalone"
 }

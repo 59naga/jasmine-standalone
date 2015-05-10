@@ -1,8 +1,4386 @@
-addEventListener('DOMContentLoaded',function(){
+/*
+Copyright (c) 2008-2015 Pivotal Labs
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+var getJasmineRequireObj = (function (jasmineGlobal) {
+  var jasmineRequire;
+
+  if (typeof module !== 'undefined' && module.exports) {
+    jasmineGlobal = global;
+    jasmineRequire = exports;
+  } else {
+    if (typeof window !== 'undefined' && typeof window.toString === 'function' && window.toString() === '[object GjsGlobal]') {
+      jasmineGlobal = window;
+    }
+    jasmineRequire = jasmineGlobal.jasmineRequire = jasmineGlobal.jasmineRequire || {};
+  }
+
+  function getJasmineRequire() {
+    return jasmineRequire;
+  }
+
+  getJasmineRequire().core = function(jRequire) {
+    var j$ = {};
+
+    jRequire.base(j$, jasmineGlobal);
+    j$.util = jRequire.util();
+    j$.errors = jRequire.errors();
+    j$.Any = jRequire.Any(j$);
+    j$.Anything = jRequire.Anything(j$);
+    j$.CallTracker = jRequire.CallTracker();
+    j$.MockDate = jRequire.MockDate();
+    j$.Clock = jRequire.Clock();
+    j$.DelayedFunctionScheduler = jRequire.DelayedFunctionScheduler();
+    j$.Env = jRequire.Env(j$);
+    j$.ExceptionFormatter = jRequire.ExceptionFormatter();
+    j$.Expectation = jRequire.Expectation();
+    j$.buildExpectationResult = jRequire.buildExpectationResult();
+    j$.JsApiReporter = jRequire.JsApiReporter();
+    j$.matchersUtil = jRequire.matchersUtil(j$);
+    j$.ObjectContaining = jRequire.ObjectContaining(j$);
+    j$.ArrayContaining = jRequire.ArrayContaining(j$);
+    j$.pp = jRequire.pp(j$);
+    j$.QueueRunner = jRequire.QueueRunner(j$);
+    j$.ReportDispatcher = jRequire.ReportDispatcher();
+    j$.Spec = jRequire.Spec(j$);
+    j$.SpyRegistry = jRequire.SpyRegistry(j$);
+    j$.SpyStrategy = jRequire.SpyStrategy();
+    j$.StringMatching = jRequire.StringMatching(j$);
+    j$.Suite = jRequire.Suite(j$);
+    j$.Timer = jRequire.Timer();
+    j$.TreeProcessor = jRequire.TreeProcessor();
+    j$.version = jRequire.version();
+
+    j$.matchers = jRequire.requireMatchers(jRequire, j$);
+
+    return j$;
+  };
+
+  return getJasmineRequire;
+})(this);
+
+getJasmineRequireObj().requireMatchers = function(jRequire, j$) {
+  var availableMatchers = [
+      'toBe',
+      'toBeCloseTo',
+      'toBeDefined',
+      'toBeFalsy',
+      'toBeGreaterThan',
+      'toBeLessThan',
+      'toBeNaN',
+      'toBeNull',
+      'toBeTruthy',
+      'toBeUndefined',
+      'toContain',
+      'toEqual',
+      'toHaveBeenCalled',
+      'toHaveBeenCalledWith',
+      'toMatch',
+      'toThrow',
+      'toThrowError'
+    ],
+    matchers = {};
+
+  for (var i = 0; i < availableMatchers.length; i++) {
+    var name = availableMatchers[i];
+    matchers[name] = jRequire[name](j$);
+  }
+
+  return matchers;
+};
+
+getJasmineRequireObj().base = function(j$, jasmineGlobal) {
+  j$.unimplementedMethod_ = function() {
+    throw new Error('unimplemented method');
+  };
+
+  j$.MAX_PRETTY_PRINT_DEPTH = 40;
+  j$.MAX_PRETTY_PRINT_ARRAY_LENGTH = 100;
+  j$.DEFAULT_TIMEOUT_INTERVAL = 5000;
+
+  j$.getGlobal = function() {
+    return jasmineGlobal;
+  };
+
+  j$.getEnv = function(options) {
+    var env = j$.currentEnv_ = j$.currentEnv_ || new j$.Env(options);
+    //jasmine. singletons in here (setTimeout blah blah).
+    return env;
+  };
+
+  j$.isArray_ = function(value) {
+    return j$.isA_('Array', value);
+  };
+
+  j$.isString_ = function(value) {
+    return j$.isA_('String', value);
+  };
+
+  j$.isNumber_ = function(value) {
+    return j$.isA_('Number', value);
+  };
+
+  j$.isA_ = function(typeName, value) {
+    return Object.prototype.toString.apply(value) === '[object ' + typeName + ']';
+  };
+
+  j$.isDomNode = function(obj) {
+    return obj.nodeType > 0;
+  };
+
+  j$.fnNameFor = function(func) {
+    return func.name || func.toString().match(/^\s*function\s*(\w*)\s*\(/)[1];
+  };
+
+  j$.any = function(clazz) {
+    return new j$.Any(clazz);
+  };
+
+  j$.anything = function() {
+    return new j$.Anything();
+  };
+
+  j$.objectContaining = function(sample) {
+    return new j$.ObjectContaining(sample);
+  };
+
+  j$.stringMatching = function(expected) {
+    return new j$.StringMatching(expected);
+  };
+
+  j$.arrayContaining = function(sample) {
+    return new j$.ArrayContaining(sample);
+  };
+
+  j$.createSpy = function(name, originalFn) {
+
+    var spyStrategy = new j$.SpyStrategy({
+        name: name,
+        fn: originalFn,
+        getSpy: function() { return spy; }
+      }),
+      callTracker = new j$.CallTracker(),
+      spy = function() {
+        var callData = {
+          object: this,
+          args: Array.prototype.slice.apply(arguments)
+        };
+
+        callTracker.track(callData);
+        var returnValue = spyStrategy.exec.apply(this, arguments);
+        callData.returnValue = returnValue;
+
+        return returnValue;
+      };
+
+    for (var prop in originalFn) {
+      if (prop === 'and' || prop === 'calls') {
+        throw new Error('Jasmine spies would overwrite the \'and\' and \'calls\' properties on the object being spied upon');
+      }
+
+      spy[prop] = originalFn[prop];
+    }
+
+    spy.and = spyStrategy;
+    spy.calls = callTracker;
+
+    return spy;
+  };
+
+  j$.isSpy = function(putativeSpy) {
+    if (!putativeSpy) {
+      return false;
+    }
+    return putativeSpy.and instanceof j$.SpyStrategy &&
+      putativeSpy.calls instanceof j$.CallTracker;
+  };
+
+  j$.createSpyObj = function(baseName, methodNames) {
+    if (j$.isArray_(baseName) && j$.util.isUndefined(methodNames)) {
+      methodNames = baseName;
+      baseName = 'unknown';
+    }
+
+    if (!j$.isArray_(methodNames) || methodNames.length === 0) {
+      throw 'createSpyObj requires a non-empty array of method names to create spies for';
+    }
+    var obj = {};
+    for (var i = 0; i < methodNames.length; i++) {
+      obj[methodNames[i]] = j$.createSpy(baseName + '.' + methodNames[i]);
+    }
+    return obj;
+  };
+};
+
+getJasmineRequireObj().util = function() {
+
+  var util = {};
+
+  util.inherit = function(childClass, parentClass) {
+    var Subclass = function() {
+    };
+    Subclass.prototype = parentClass.prototype;
+    childClass.prototype = new Subclass();
+  };
+
+  util.htmlEscape = function(str) {
+    if (!str) {
+      return str;
+    }
+    return str.replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  };
+
+  util.argsToArray = function(args) {
+    var arrayOfArgs = [];
+    for (var i = 0; i < args.length; i++) {
+      arrayOfArgs.push(args[i]);
+    }
+    return arrayOfArgs;
+  };
+
+  util.isUndefined = function(obj) {
+    return obj === void 0;
+  };
+
+  util.arrayContains = function(array, search) {
+    var i = array.length;
+    while (i--) {
+      if (array[i] === search) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  util.clone = function(obj) {
+    if (Object.prototype.toString.apply(obj) === '[object Array]') {
+      return obj.slice();
+    }
+
+    var cloned = {};
+    for (var prop in obj) {
+      if (obj.hasOwnProperty(prop)) {
+        cloned[prop] = obj[prop];
+      }
+    }
+
+    return cloned;
+  };
+
+  return util;
+};
+
+getJasmineRequireObj().Spec = function(j$) {
+  function Spec(attrs) {
+    this.expectationFactory = attrs.expectationFactory;
+    this.resultCallback = attrs.resultCallback || function() {};
+    this.id = attrs.id;
+    this.description = attrs.description || '';
+    this.queueableFn = attrs.queueableFn;
+    this.beforeAndAfterFns = attrs.beforeAndAfterFns || function() { return {befores: [], afters: []}; };
+    this.userContext = attrs.userContext || function() { return {}; };
+    this.onStart = attrs.onStart || function() {};
+    this.getSpecName = attrs.getSpecName || function() { return ''; };
+    this.expectationResultFactory = attrs.expectationResultFactory || function() { };
+    this.queueRunnerFactory = attrs.queueRunnerFactory || function() {};
+    this.catchingExceptions = attrs.catchingExceptions || function() { return true; };
+    this.throwOnExpectationFailure = !!attrs.throwOnExpectationFailure;
+
+    if (!this.queueableFn.fn) {
+      this.pend();
+    }
+
+    this.result = {
+      id: this.id,
+      description: this.description,
+      fullName: this.getFullName(),
+      failedExpectations: [],
+      passedExpectations: [],
+      pendingReason: ''
+    };
+  }
+
+  Spec.prototype.addExpectationResult = function(passed, data, isError) {
+    var expectationResult = this.expectationResultFactory(data);
+    if (passed) {
+      this.result.passedExpectations.push(expectationResult);
+    } else {
+      this.result.failedExpectations.push(expectationResult);
+
+      if (this.throwOnExpectationFailure && !isError) {
+        throw new j$.errors.ExpectationFailed();
+      }
+    }
+  };
+
+  Spec.prototype.expect = function(actual) {
+    return this.expectationFactory(actual, this);
+  };
+
+  Spec.prototype.execute = function(onComplete, enabled) {
+    var self = this;
+
+    this.onStart(this);
+
+    if (!this.isExecutable() || this.markedPending || enabled === false) {
+      complete(enabled);
+      return;
+    }
+
+    var fns = this.beforeAndAfterFns();
+    var allFns = fns.befores.concat(this.queueableFn).concat(fns.afters);
+
+    this.queueRunnerFactory({
+      queueableFns: allFns,
+      onException: function() { self.onException.apply(self, arguments); },
+      onComplete: complete,
+      userContext: this.userContext()
+    });
+
+    function complete(enabledAgain) {
+      self.result.status = self.status(enabledAgain);
+      self.resultCallback(self.result);
+
+      if (onComplete) {
+        onComplete();
+      }
+    }
+  };
+
+  Spec.prototype.onException = function onException(e) {
+    if (Spec.isPendingSpecException(e)) {
+      this.pend(extractCustomPendingMessage(e));
+      return;
+    }
+
+    if (e instanceof j$.errors.ExpectationFailed) {
+      return;
+    }
+
+    this.addExpectationResult(false, {
+      matcherName: '',
+      passed: false,
+      expected: '',
+      actual: '',
+      error: e
+    }, true);
+  };
+
+  Spec.prototype.disable = function() {
+    this.disabled = true;
+  };
+
+  Spec.prototype.pend = function(message) {
+    this.markedPending = true;
+    if (message) {
+      this.result.pendingReason = message;
+    }
+  };
+
+  Spec.prototype.getResult = function() {
+    this.result.status = this.status();
+    return this.result;
+  };
+
+  Spec.prototype.status = function(enabled) {
+    if (this.disabled || enabled === false) {
+      return 'disabled';
+    }
+
+    if (this.markedPending) {
+      return 'pending';
+    }
+
+    if (this.result.failedExpectations.length > 0) {
+      return 'failed';
+    } else {
+      return 'passed';
+    }
+  };
+
+  Spec.prototype.isExecutable = function() {
+    return !this.disabled;
+  };
+
+  Spec.prototype.getFullName = function() {
+    return this.getSpecName(this);
+  };
+
+  var extractCustomPendingMessage = function(e) {
+    var fullMessage = e.toString(),
+        boilerplateStart = fullMessage.indexOf(Spec.pendingSpecExceptionMessage),
+        boilerplateEnd = boilerplateStart + Spec.pendingSpecExceptionMessage.length;
+
+    return fullMessage.substr(boilerplateEnd);
+  };
+
+  Spec.pendingSpecExceptionMessage = '=> marked Pending';
+
+  Spec.isPendingSpecException = function(e) {
+    return !!(e && e.toString && e.toString().indexOf(Spec.pendingSpecExceptionMessage) !== -1);
+  };
+
+  return Spec;
+};
+
+if (typeof window == void 0 && typeof exports == 'object') {
+  exports.Spec = jasmineRequire.Spec;
+}
+
+getJasmineRequireObj().Env = function(j$) {
+  function Env(options) {
+    options = options || {};
+
+    var self = this;
+    var global = options.global || j$.getGlobal();
+
+    var totalSpecsDefined = 0;
+
+    var catchExceptions = true;
+
+    var realSetTimeout = j$.getGlobal().setTimeout;
+    var realClearTimeout = j$.getGlobal().clearTimeout;
+    this.clock = new j$.Clock(global, function () { return new j$.DelayedFunctionScheduler(); }, new j$.MockDate(global));
+
+    var runnableLookupTable = {};
+    var runnableResources = {};
+
+    var currentSpec = null;
+    var currentlyExecutingSuites = [];
+    var currentDeclarationSuite = null;
+    var throwOnExpectationFailure = false;
+
+    var currentSuite = function() {
+      return currentlyExecutingSuites[currentlyExecutingSuites.length - 1];
+    };
+
+    var currentRunnable = function() {
+      return currentSpec || currentSuite();
+    };
+
+    var reporter = new j$.ReportDispatcher([
+      'jasmineStarted',
+      'jasmineDone',
+      'suiteStarted',
+      'suiteDone',
+      'specStarted',
+      'specDone'
+    ]);
+
+    this.specFilter = function() {
+      return true;
+    };
+
+    this.addCustomEqualityTester = function(tester) {
+      if(!currentRunnable()) {
+        throw new Error('Custom Equalities must be added in a before function or a spec');
+      }
+      runnableResources[currentRunnable().id].customEqualityTesters.push(tester);
+    };
+
+    this.addMatchers = function(matchersToAdd) {
+      if(!currentRunnable()) {
+        throw new Error('Matchers must be added in a before function or a spec');
+      }
+      var customMatchers = runnableResources[currentRunnable().id].customMatchers;
+      for (var matcherName in matchersToAdd) {
+        customMatchers[matcherName] = matchersToAdd[matcherName];
+      }
+    };
+
+    j$.Expectation.addCoreMatchers(j$.matchers);
+
+    var nextSpecId = 0;
+    var getNextSpecId = function() {
+      return 'spec' + nextSpecId++;
+    };
+
+    var nextSuiteId = 0;
+    var getNextSuiteId = function() {
+      return 'suite' + nextSuiteId++;
+    };
+
+    var expectationFactory = function(actual, spec) {
+      return j$.Expectation.Factory({
+        util: j$.matchersUtil,
+        customEqualityTesters: runnableResources[spec.id].customEqualityTesters,
+        customMatchers: runnableResources[spec.id].customMatchers,
+        actual: actual,
+        addExpectationResult: addExpectationResult
+      });
+
+      function addExpectationResult(passed, result) {
+        return spec.addExpectationResult(passed, result);
+      }
+    };
+
+    var defaultResourcesForRunnable = function(id, parentRunnableId) {
+      var resources = {spies: [], customEqualityTesters: [], customMatchers: {}};
+
+      if(runnableResources[parentRunnableId]){
+        resources.customEqualityTesters = j$.util.clone(runnableResources[parentRunnableId].customEqualityTesters);
+        resources.customMatchers = j$.util.clone(runnableResources[parentRunnableId].customMatchers);
+      }
+
+      runnableResources[id] = resources;
+    };
+
+    var clearResourcesForRunnable = function(id) {
+        spyRegistry.clearSpies();
+        delete runnableResources[id];
+    };
+
+    var beforeAndAfterFns = function(suite) {
+      return function() {
+        var befores = [],
+          afters = [];
+
+        while(suite) {
+          befores = befores.concat(suite.beforeFns);
+          afters = afters.concat(suite.afterFns);
+
+          suite = suite.parentSuite;
+        }
+
+        return {
+          befores: befores.reverse(),
+          afters: afters
+        };
+      };
+    };
+
+    var getSpecName = function(spec, suite) {
+      return suite.getFullName() + ' ' + spec.description;
+    };
+
+    // TODO: we may just be able to pass in the fn instead of wrapping here
+    var buildExpectationResult = j$.buildExpectationResult,
+        exceptionFormatter = new j$.ExceptionFormatter(),
+        expectationResultFactory = function(attrs) {
+          attrs.messageFormatter = exceptionFormatter.message;
+          attrs.stackFormatter = exceptionFormatter.stack;
+
+          return buildExpectationResult(attrs);
+        };
+
+    // TODO: fix this naming, and here's where the value comes in
+    this.catchExceptions = function(value) {
+      catchExceptions = !!value;
+      return catchExceptions;
+    };
+
+    this.catchingExceptions = function() {
+      return catchExceptions;
+    };
+
+    var maximumSpecCallbackDepth = 20;
+    var currentSpecCallbackDepth = 0;
+
+    function clearStack(fn) {
+      currentSpecCallbackDepth++;
+      if (currentSpecCallbackDepth >= maximumSpecCallbackDepth) {
+        currentSpecCallbackDepth = 0;
+        realSetTimeout(fn, 0);
+      } else {
+        fn();
+      }
+    }
+
+    var catchException = function(e) {
+      return j$.Spec.isPendingSpecException(e) || catchExceptions;
+    };
+
+    this.throwOnExpectationFailure = function(value) {
+      throwOnExpectationFailure = !!value;
+    };
+
+    this.throwingExpectationFailures = function() {
+      return throwOnExpectationFailure;
+    };
+
+    var queueRunnerFactory = function(options) {
+      options.catchException = catchException;
+      options.clearStack = options.clearStack || clearStack;
+      options.timeout = {setTimeout: realSetTimeout, clearTimeout: realClearTimeout};
+      options.fail = self.fail;
+
+      new j$.QueueRunner(options).execute();
+    };
+
+    var topSuite = new j$.Suite({
+      env: this,
+      id: getNextSuiteId(),
+      description: 'Jasmine__TopLevel__Suite',
+      queueRunner: queueRunnerFactory
+    });
+    runnableLookupTable[topSuite.id] = topSuite;
+    defaultResourcesForRunnable(topSuite.id);
+    currentDeclarationSuite = topSuite;
+
+    this.topSuite = function() {
+      return topSuite;
+    };
+
+    this.execute = function(runnablesToRun) {
+      if(!runnablesToRun) {
+        if (focusedRunnables.length) {
+          runnablesToRun = focusedRunnables;
+        } else {
+          runnablesToRun = [topSuite.id];
+        }
+      }
+      var processor = new j$.TreeProcessor({
+        tree: topSuite,
+        runnableIds: runnablesToRun,
+        queueRunnerFactory: queueRunnerFactory,
+        nodeStart: function(suite) {
+          currentlyExecutingSuites.push(suite);
+          defaultResourcesForRunnable(suite.id, suite.parentSuite.id);
+          reporter.suiteStarted(suite.result);
+        },
+        nodeComplete: function(suite, result) {
+          if (!suite.disabled) {
+            clearResourcesForRunnable(suite.id);
+          }
+          currentlyExecutingSuites.pop();
+          reporter.suiteDone(result);
+        }
+      });
+
+      if(!processor.processTree().valid) {
+        throw new Error('Invalid order: would cause a beforeAll or afterAll to be run multiple times');
+      }
+
+      reporter.jasmineStarted({
+        totalSpecsDefined: totalSpecsDefined
+      });
+
+      processor.execute(reporter.jasmineDone);
+    };
+
+    this.addReporter = function(reporterToAdd) {
+      reporter.addReporter(reporterToAdd);
+    };
+
+    var spyRegistry = new j$.SpyRegistry({currentSpies: function() {
+      if(!currentRunnable()) {
+        throw new Error('Spies must be created in a before function or a spec');
+      }
+      return runnableResources[currentRunnable().id].spies;
+    }});
+
+    this.spyOn = function() {
+      return spyRegistry.spyOn.apply(spyRegistry, arguments);
+    };
+
+    var suiteFactory = function(description) {
+      var suite = new j$.Suite({
+        env: self,
+        id: getNextSuiteId(),
+        description: description,
+        parentSuite: currentDeclarationSuite,
+        expectationFactory: expectationFactory,
+        expectationResultFactory: expectationResultFactory,
+        throwOnExpectationFailure: throwOnExpectationFailure
+      });
+
+      runnableLookupTable[suite.id] = suite;
+      return suite;
+    };
+
+    this.describe = function(description, specDefinitions) {
+      var suite = suiteFactory(description);
+      addSpecsToSuite(suite, specDefinitions);
+      return suite;
+    };
+
+    this.xdescribe = function(description, specDefinitions) {
+      var suite = this.describe(description, specDefinitions);
+      suite.disable();
+      return suite;
+    };
+
+    var focusedRunnables = [];
+
+    this.fdescribe = function(description, specDefinitions) {
+      var suite = suiteFactory(description);
+      suite.isFocused = true;
+
+      focusedRunnables.push(suite.id);
+      unfocusAncestor();
+      addSpecsToSuite(suite, specDefinitions);
+
+      return suite;
+    };
+
+    function addSpecsToSuite(suite, specDefinitions) {
+      var parentSuite = currentDeclarationSuite;
+      parentSuite.addChild(suite);
+      currentDeclarationSuite = suite;
+
+      var declarationError = null;
+      try {
+        specDefinitions.call(suite);
+      } catch (e) {
+        declarationError = e;
+      }
+
+      if (declarationError) {
+        self.it('encountered a declaration exception', function() {
+          throw declarationError;
+        });
+      }
+
+      currentDeclarationSuite = parentSuite;
+    }
+
+    function findFocusedAncestor(suite) {
+      while (suite) {
+        if (suite.isFocused) {
+          return suite.id;
+        }
+        suite = suite.parentSuite;
+      }
+
+      return null;
+    }
+
+    function unfocusAncestor() {
+      var focusedAncestor = findFocusedAncestor(currentDeclarationSuite);
+      if (focusedAncestor) {
+        for (var i = 0; i < focusedRunnables.length; i++) {
+          if (focusedRunnables[i] === focusedAncestor) {
+            focusedRunnables.splice(i, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    var specFactory = function(description, fn, suite, timeout) {
+      totalSpecsDefined++;
+      var spec = new j$.Spec({
+        id: getNextSpecId(),
+        beforeAndAfterFns: beforeAndAfterFns(suite),
+        expectationFactory: expectationFactory,
+        resultCallback: specResultCallback,
+        getSpecName: function(spec) {
+          return getSpecName(spec, suite);
+        },
+        onStart: specStarted,
+        description: description,
+        expectationResultFactory: expectationResultFactory,
+        queueRunnerFactory: queueRunnerFactory,
+        userContext: function() { return suite.clonedSharedUserContext(); },
+        queueableFn: {
+          fn: fn,
+          timeout: function() { return timeout || j$.DEFAULT_TIMEOUT_INTERVAL; }
+        },
+        throwOnExpectationFailure: throwOnExpectationFailure
+      });
+
+      runnableLookupTable[spec.id] = spec;
+
+      if (!self.specFilter(spec)) {
+        spec.disable();
+      }
+
+      return spec;
+
+      function specResultCallback(result) {
+        clearResourcesForRunnable(spec.id);
+        currentSpec = null;
+        reporter.specDone(result);
+      }
+
+      function specStarted(spec) {
+        currentSpec = spec;
+        defaultResourcesForRunnable(spec.id, suite.id);
+        reporter.specStarted(spec.result);
+      }
+    };
+
+    this.it = function(description, fn, timeout) {
+      var spec = specFactory(description, fn, currentDeclarationSuite, timeout);
+      currentDeclarationSuite.addChild(spec);
+      return spec;
+    };
+
+    this.xit = function() {
+      var spec = this.it.apply(this, arguments);
+      spec.pend();
+      return spec;
+    };
+
+    this.fit = function(){
+      var spec = this.it.apply(this, arguments);
+
+      focusedRunnables.push(spec.id);
+      unfocusAncestor();
+      return spec;
+    };
+
+    this.expect = function(actual) {
+      if (!currentRunnable()) {
+        throw new Error('\'expect\' was used when there was no current spec, this could be because an asynchronous test timed out');
+      }
+
+      return currentRunnable().expect(actual);
+    };
+
+    this.beforeEach = function(beforeEachFunction, timeout) {
+      currentDeclarationSuite.beforeEach({
+        fn: beforeEachFunction,
+        timeout: function() { return timeout || j$.DEFAULT_TIMEOUT_INTERVAL; }
+      });
+    };
+
+    this.beforeAll = function(beforeAllFunction, timeout) {
+      currentDeclarationSuite.beforeAll({
+        fn: beforeAllFunction,
+        timeout: function() { return timeout || j$.DEFAULT_TIMEOUT_INTERVAL; }
+      });
+    };
+
+    this.afterEach = function(afterEachFunction, timeout) {
+      currentDeclarationSuite.afterEach({
+        fn: afterEachFunction,
+        timeout: function() { return timeout || j$.DEFAULT_TIMEOUT_INTERVAL; }
+      });
+    };
+
+    this.afterAll = function(afterAllFunction, timeout) {
+      currentDeclarationSuite.afterAll({
+        fn: afterAllFunction,
+        timeout: function() { return timeout || j$.DEFAULT_TIMEOUT_INTERVAL; }
+      });
+    };
+
+    this.pending = function(message) {
+      var fullMessage = j$.Spec.pendingSpecExceptionMessage;
+      if(message) {
+        fullMessage += message;
+      }
+      throw fullMessage;
+    };
+
+    this.fail = function(error) {
+      var message = 'Failed';
+      if (error) {
+        message += ': ';
+        message += error.message || error;
+      }
+
+      currentRunnable().addExpectationResult(false, {
+        matcherName: '',
+        passed: false,
+        expected: '',
+        actual: '',
+        message: message,
+        error: error && error.message ? error : null
+      });
+    };
+  }
+
+  return Env;
+};
+
+getJasmineRequireObj().JsApiReporter = function() {
+
+  var noopTimer = {
+    start: function(){},
+    elapsed: function(){ return 0; }
+  };
+
+  function JsApiReporter(options) {
+    var timer = options.timer || noopTimer,
+        status = 'loaded';
+
+    this.started = false;
+    this.finished = false;
+
+    this.jasmineStarted = function() {
+      this.started = true;
+      status = 'started';
+      timer.start();
+    };
+
+    var executionTime;
+
+    this.jasmineDone = function() {
+      this.finished = true;
+      executionTime = timer.elapsed();
+      status = 'done';
+    };
+
+    this.status = function() {
+      return status;
+    };
+
+    var suites = [],
+      suites_hash = {};
+
+    this.suiteStarted = function(result) {
+      suites_hash[result.id] = result;
+    };
+
+    this.suiteDone = function(result) {
+      storeSuite(result);
+    };
+
+    this.suiteResults = function(index, length) {
+      return suites.slice(index, index + length);
+    };
+
+    function storeSuite(result) {
+      suites.push(result);
+      suites_hash[result.id] = result;
+    }
+
+    this.suites = function() {
+      return suites_hash;
+    };
+
+    var specs = [];
+
+    this.specDone = function(result) {
+      specs.push(result);
+    };
+
+    this.specResults = function(index, length) {
+      return specs.slice(index, index + length);
+    };
+
+    this.specs = function() {
+      return specs;
+    };
+
+    this.executionTime = function() {
+      return executionTime;
+    };
+
+  }
+
+  return JsApiReporter;
+};
+
+getJasmineRequireObj().CallTracker = function() {
+
+  function CallTracker() {
+    var calls = [];
+
+    this.track = function(context) {
+      calls.push(context);
+    };
+
+    this.any = function() {
+      return !!calls.length;
+    };
+
+    this.count = function() {
+      return calls.length;
+    };
+
+    this.argsFor = function(index) {
+      var call = calls[index];
+      return call ? call.args : [];
+    };
+
+    this.all = function() {
+      return calls;
+    };
+
+    this.allArgs = function() {
+      var callArgs = [];
+      for(var i = 0; i < calls.length; i++){
+        callArgs.push(calls[i].args);
+      }
+
+      return callArgs;
+    };
+
+    this.first = function() {
+      return calls[0];
+    };
+
+    this.mostRecent = function() {
+      return calls[calls.length - 1];
+    };
+
+    this.reset = function() {
+      calls = [];
+    };
+  }
+
+  return CallTracker;
+};
+
+getJasmineRequireObj().Clock = function() {
+  function Clock(global, delayedFunctionSchedulerFactory, mockDate) {
+    var self = this,
+      realTimingFunctions = {
+        setTimeout: global.setTimeout,
+        clearTimeout: global.clearTimeout,
+        setInterval: global.setInterval,
+        clearInterval: global.clearInterval
+      },
+      fakeTimingFunctions = {
+        setTimeout: setTimeout,
+        clearTimeout: clearTimeout,
+        setInterval: setInterval,
+        clearInterval: clearInterval
+      },
+      installed = false,
+      delayedFunctionScheduler,
+      timer;
+
+
+    self.install = function() {
+      if(!originalTimingFunctionsIntact()) {
+        throw new Error('Jasmine Clock was unable to install over custom global timer functions. Is the clock already installed?');
+      }
+      replace(global, fakeTimingFunctions);
+      timer = fakeTimingFunctions;
+      delayedFunctionScheduler = delayedFunctionSchedulerFactory();
+      installed = true;
+
+      return self;
+    };
+
+    self.uninstall = function() {
+      delayedFunctionScheduler = null;
+      mockDate.uninstall();
+      replace(global, realTimingFunctions);
+
+      timer = realTimingFunctions;
+      installed = false;
+    };
+
+    self.withMock = function(closure) {
+      this.install();
+      try {
+        closure();
+      } finally {
+        this.uninstall();
+      }
+    };
+
+    self.mockDate = function(initialDate) {
+      mockDate.install(initialDate);
+    };
+
+    self.setTimeout = function(fn, delay, params) {
+      if (legacyIE()) {
+        if (arguments.length > 2) {
+          throw new Error('IE < 9 cannot support extra params to setTimeout without a polyfill');
+        }
+        return timer.setTimeout(fn, delay);
+      }
+      return Function.prototype.apply.apply(timer.setTimeout, [global, arguments]);
+    };
+
+    self.setInterval = function(fn, delay, params) {
+      if (legacyIE()) {
+        if (arguments.length > 2) {
+          throw new Error('IE < 9 cannot support extra params to setInterval without a polyfill');
+        }
+        return timer.setInterval(fn, delay);
+      }
+      return Function.prototype.apply.apply(timer.setInterval, [global, arguments]);
+    };
+
+    self.clearTimeout = function(id) {
+      return Function.prototype.call.apply(timer.clearTimeout, [global, id]);
+    };
+
+    self.clearInterval = function(id) {
+      return Function.prototype.call.apply(timer.clearInterval, [global, id]);
+    };
+
+    self.tick = function(millis) {
+      if (installed) {
+        mockDate.tick(millis);
+        delayedFunctionScheduler.tick(millis);
+      } else {
+        throw new Error('Mock clock is not installed, use jasmine.clock().install()');
+      }
+    };
+
+    return self;
+
+    function originalTimingFunctionsIntact() {
+      return global.setTimeout === realTimingFunctions.setTimeout &&
+        global.clearTimeout === realTimingFunctions.clearTimeout &&
+        global.setInterval === realTimingFunctions.setInterval &&
+        global.clearInterval === realTimingFunctions.clearInterval;
+    }
+
+    function legacyIE() {
+      //if these methods are polyfilled, apply will be present
+      return !(realTimingFunctions.setTimeout || realTimingFunctions.setInterval).apply;
+    }
+
+    function replace(dest, source) {
+      for (var prop in source) {
+        dest[prop] = source[prop];
+      }
+    }
+
+    function setTimeout(fn, delay) {
+      return delayedFunctionScheduler.scheduleFunction(fn, delay, argSlice(arguments, 2));
+    }
+
+    function clearTimeout(id) {
+      return delayedFunctionScheduler.removeFunctionWithId(id);
+    }
+
+    function setInterval(fn, interval) {
+      return delayedFunctionScheduler.scheduleFunction(fn, interval, argSlice(arguments, 2), true);
+    }
+
+    function clearInterval(id) {
+      return delayedFunctionScheduler.removeFunctionWithId(id);
+    }
+
+    function argSlice(argsObj, n) {
+      return Array.prototype.slice.call(argsObj, n);
+    }
+  }
+
+  return Clock;
+};
+
+getJasmineRequireObj().DelayedFunctionScheduler = function() {
+  function DelayedFunctionScheduler() {
+    var self = this;
+    var scheduledLookup = [];
+    var scheduledFunctions = {};
+    var currentTime = 0;
+    var delayedFnCount = 0;
+
+    self.tick = function(millis) {
+      millis = millis || 0;
+      var endTime = currentTime + millis;
+
+      runScheduledFunctions(endTime);
+      currentTime = endTime;
+    };
+
+    self.scheduleFunction = function(funcToCall, millis, params, recurring, timeoutKey, runAtMillis) {
+      var f;
+      if (typeof(funcToCall) === 'string') {
+        /* jshint evil: true */
+        f = function() { return eval(funcToCall); };
+        /* jshint evil: false */
+      } else {
+        f = funcToCall;
+      }
+
+      millis = millis || 0;
+      timeoutKey = timeoutKey || ++delayedFnCount;
+      runAtMillis = runAtMillis || (currentTime + millis);
+
+      var funcToSchedule = {
+        runAtMillis: runAtMillis,
+        funcToCall: f,
+        recurring: recurring,
+        params: params,
+        timeoutKey: timeoutKey,
+        millis: millis
+      };
+
+      if (runAtMillis in scheduledFunctions) {
+        scheduledFunctions[runAtMillis].push(funcToSchedule);
+      } else {
+        scheduledFunctions[runAtMillis] = [funcToSchedule];
+        scheduledLookup.push(runAtMillis);
+        scheduledLookup.sort(function (a, b) {
+          return a - b;
+        });
+      }
+
+      return timeoutKey;
+    };
+
+    self.removeFunctionWithId = function(timeoutKey) {
+      for (var runAtMillis in scheduledFunctions) {
+        var funcs = scheduledFunctions[runAtMillis];
+        var i = indexOfFirstToPass(funcs, function (func) {
+          return func.timeoutKey === timeoutKey;
+        });
+
+        if (i > -1) {
+          if (funcs.length === 1) {
+            delete scheduledFunctions[runAtMillis];
+            deleteFromLookup(runAtMillis);
+          } else {
+            funcs.splice(i, 1);
+          }
+
+          // intervals get rescheduled when executed, so there's never more
+          // than a single scheduled function with a given timeoutKey
+          break;
+        }
+      }
+    };
+
+    return self;
+
+    function indexOfFirstToPass(array, testFn) {
+      var index = -1;
+
+      for (var i = 0; i < array.length; ++i) {
+        if (testFn(array[i])) {
+          index = i;
+          break;
+        }
+      }
+
+      return index;
+    }
+
+    function deleteFromLookup(key) {
+      var value = Number(key);
+      var i = indexOfFirstToPass(scheduledLookup, function (millis) {
+        return millis === value;
+      });
+
+      if (i > -1) {
+        scheduledLookup.splice(i, 1);
+      }
+    }
+
+    function reschedule(scheduledFn) {
+      self.scheduleFunction(scheduledFn.funcToCall,
+        scheduledFn.millis,
+        scheduledFn.params,
+        true,
+        scheduledFn.timeoutKey,
+        scheduledFn.runAtMillis + scheduledFn.millis);
+    }
+
+    function forEachFunction(funcsToRun, callback) {
+      for (var i = 0; i < funcsToRun.length; ++i) {
+        callback(funcsToRun[i]);
+      }
+    }
+
+    function runScheduledFunctions(endTime) {
+      if (scheduledLookup.length === 0 || scheduledLookup[0] > endTime) {
+        return;
+      }
+
+      do {
+        currentTime = scheduledLookup.shift();
+
+        var funcsToRun = scheduledFunctions[currentTime];
+        delete scheduledFunctions[currentTime];
+
+        forEachFunction(funcsToRun, function(funcToRun) {
+          if (funcToRun.recurring) {
+            reschedule(funcToRun);
+          }
+        });
+
+        forEachFunction(funcsToRun, function(funcToRun) {
+          funcToRun.funcToCall.apply(null, funcToRun.params || []);
+        });
+      } while (scheduledLookup.length > 0 &&
+              // checking first if we're out of time prevents setTimeout(0)
+              // scheduled in a funcToRun from forcing an extra iteration
+                 currentTime !== endTime  &&
+                 scheduledLookup[0] <= endTime);
+    }
+  }
+
+  return DelayedFunctionScheduler;
+};
+
+getJasmineRequireObj().ExceptionFormatter = function() {
+  function ExceptionFormatter() {
+    this.message = function(error) {
+      var message = '';
+
+      if (error.name && error.message) {
+        message += error.name + ': ' + error.message;
+      } else {
+        message += error.toString() + ' thrown';
+      }
+
+      if (error.fileName || error.sourceURL) {
+        message += ' in ' + (error.fileName || error.sourceURL);
+      }
+
+      if (error.line || error.lineNumber) {
+        message += ' (line ' + (error.line || error.lineNumber) + ')';
+      }
+
+      return message;
+    };
+
+    this.stack = function(error) {
+      return error ? error.stack : null;
+    };
+  }
+
+  return ExceptionFormatter;
+};
+
+getJasmineRequireObj().Expectation = function() {
+
+  function Expectation(options) {
+    this.util = options.util || { buildFailureMessage: function() {} };
+    this.customEqualityTesters = options.customEqualityTesters || [];
+    this.actual = options.actual;
+    this.addExpectationResult = options.addExpectationResult || function(){};
+    this.isNot = options.isNot;
+
+    var customMatchers = options.customMatchers || {};
+    for (var matcherName in customMatchers) {
+      this[matcherName] = Expectation.prototype.wrapCompare(matcherName, customMatchers[matcherName]);
+    }
+  }
+
+  Expectation.prototype.wrapCompare = function(name, matcherFactory) {
+    return function() {
+      var args = Array.prototype.slice.call(arguments, 0),
+        expected = args.slice(0),
+        message = '';
+
+      args.unshift(this.actual);
+
+      var matcher = matcherFactory(this.util, this.customEqualityTesters),
+          matcherCompare = matcher.compare;
+
+      function defaultNegativeCompare() {
+        var result = matcher.compare.apply(null, args);
+        result.pass = !result.pass;
+        return result;
+      }
+
+      if (this.isNot) {
+        matcherCompare = matcher.negativeCompare || defaultNegativeCompare;
+      }
+
+      var result = matcherCompare.apply(null, args);
+
+      if (!result.pass) {
+        if (!result.message) {
+          args.unshift(this.isNot);
+          args.unshift(name);
+          message = this.util.buildFailureMessage.apply(null, args);
+        } else {
+          if (Object.prototype.toString.apply(result.message) === '[object Function]') {
+            message = result.message();
+          } else {
+            message = result.message;
+          }
+        }
+      }
+
+      if (expected.length == 1) {
+        expected = expected[0];
+      }
+
+      // TODO: how many of these params are needed?
+      this.addExpectationResult(
+        result.pass,
+        {
+          matcherName: name,
+          passed: result.pass,
+          message: message,
+          actual: this.actual,
+          expected: expected // TODO: this may need to be arrayified/sliced
+        }
+      );
+    };
+  };
+
+  Expectation.addCoreMatchers = function(matchers) {
+    var prototype = Expectation.prototype;
+    for (var matcherName in matchers) {
+      var matcher = matchers[matcherName];
+      prototype[matcherName] = prototype.wrapCompare(matcherName, matcher);
+    }
+  };
+
+  Expectation.Factory = function(options) {
+    options = options || {};
+
+    var expect = new Expectation(options);
+
+    // TODO: this would be nice as its own Object - NegativeExpectation
+    // TODO: copy instead of mutate options
+    options.isNot = true;
+    expect.not = new Expectation(options);
+
+    return expect;
+  };
+
+  return Expectation;
+};
+
+//TODO: expectation result may make more sense as a presentation of an expectation.
+getJasmineRequireObj().buildExpectationResult = function() {
+  function buildExpectationResult(options) {
+    var messageFormatter = options.messageFormatter || function() {},
+      stackFormatter = options.stackFormatter || function() {};
+
+    var result = {
+      matcherName: options.matcherName,
+      message: message(),
+      stack: stack(),
+      passed: options.passed
+    };
+
+    if(!result.passed) {
+      result.expected = options.expected;
+      result.actual = options.actual;
+    }
+
+    return result;
+
+    function message() {
+      if (options.passed) {
+        return 'Passed.';
+      } else if (options.message) {
+        return options.message;
+      } else if (options.error) {
+        return messageFormatter(options.error);
+      }
+      return '';
+    }
+
+    function stack() {
+      if (options.passed) {
+        return '';
+      }
+
+      var error = options.error;
+      if (!error) {
+        try {
+          throw new Error(message());
+        } catch (e) {
+          error = e;
+        }
+      }
+      return stackFormatter(error);
+    }
+  }
+
+  return buildExpectationResult;
+};
+
+getJasmineRequireObj().MockDate = function() {
+  function MockDate(global) {
+    var self = this;
+    var currentTime = 0;
+
+    if (!global || !global.Date) {
+      self.install = function() {};
+      self.tick = function() {};
+      self.uninstall = function() {};
+      return self;
+    }
+
+    var GlobalDate = global.Date;
+
+    self.install = function(mockDate) {
+      if (mockDate instanceof GlobalDate) {
+        currentTime = mockDate.getTime();
+      } else {
+        currentTime = new GlobalDate().getTime();
+      }
+
+      global.Date = FakeDate;
+    };
+
+    self.tick = function(millis) {
+      millis = millis || 0;
+      currentTime = currentTime + millis;
+    };
+
+    self.uninstall = function() {
+      currentTime = 0;
+      global.Date = GlobalDate;
+    };
+
+    createDateProperties();
+
+    return self;
+
+    function FakeDate() {
+      switch(arguments.length) {
+        case 0:
+          return new GlobalDate(currentTime);
+        case 1:
+          return new GlobalDate(arguments[0]);
+        case 2:
+          return new GlobalDate(arguments[0], arguments[1]);
+        case 3:
+          return new GlobalDate(arguments[0], arguments[1], arguments[2]);
+        case 4:
+          return new GlobalDate(arguments[0], arguments[1], arguments[2], arguments[3]);
+        case 5:
+          return new GlobalDate(arguments[0], arguments[1], arguments[2], arguments[3],
+                                arguments[4]);
+        case 6:
+          return new GlobalDate(arguments[0], arguments[1], arguments[2], arguments[3],
+                                arguments[4], arguments[5]);
+        default:
+          return new GlobalDate(arguments[0], arguments[1], arguments[2], arguments[3],
+                                arguments[4], arguments[5], arguments[6]);
+      }
+    }
+
+    function createDateProperties() {
+      FakeDate.prototype = GlobalDate.prototype;
+
+      FakeDate.now = function() {
+        if (GlobalDate.now) {
+          return currentTime;
+        } else {
+          throw new Error('Browser does not support Date.now()');
+        }
+      };
+
+      FakeDate.toSource = GlobalDate.toSource;
+      FakeDate.toString = GlobalDate.toString;
+      FakeDate.parse = GlobalDate.parse;
+      FakeDate.UTC = GlobalDate.UTC;
+    }
+	}
+
+  return MockDate;
+};
+
+getJasmineRequireObj().pp = function(j$) {
+
+  function PrettyPrinter() {
+    this.ppNestLevel_ = 0;
+    this.seen = [];
+  }
+
+  PrettyPrinter.prototype.format = function(value) {
+    this.ppNestLevel_++;
+    try {
+      if (j$.util.isUndefined(value)) {
+        this.emitScalar('undefined');
+      } else if (value === null) {
+        this.emitScalar('null');
+      } else if (value === 0 && 1/value === -Infinity) {
+        this.emitScalar('-0');
+      } else if (value === j$.getGlobal()) {
+        this.emitScalar('<global>');
+      } else if (value.jasmineToString) {
+        this.emitScalar(value.jasmineToString());
+      } else if (typeof value === 'string') {
+        this.emitString(value);
+      } else if (j$.isSpy(value)) {
+        this.emitScalar('spy on ' + value.and.identity());
+      } else if (value instanceof RegExp) {
+        this.emitScalar(value.toString());
+      } else if (typeof value === 'function') {
+        this.emitScalar('Function');
+      } else if (typeof value.nodeType === 'number') {
+        this.emitScalar('HTMLNode');
+      } else if (value instanceof Date) {
+        this.emitScalar('Date(' + value + ')');
+      } else if (j$.util.arrayContains(this.seen, value)) {
+        this.emitScalar('<circular reference: ' + (j$.isArray_(value) ? 'Array' : 'Object') + '>');
+      } else if (j$.isArray_(value) || j$.isA_('Object', value)) {
+        this.seen.push(value);
+        if (j$.isArray_(value)) {
+          this.emitArray(value);
+        } else {
+          this.emitObject(value);
+        }
+        this.seen.pop();
+      } else {
+        this.emitScalar(value.toString());
+      }
+    } finally {
+      this.ppNestLevel_--;
+    }
+  };
+
+  PrettyPrinter.prototype.iterateObject = function(obj, fn) {
+    for (var property in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, property)) { continue; }
+      fn(property, obj.__lookupGetter__ ? (!j$.util.isUndefined(obj.__lookupGetter__(property)) &&
+          obj.__lookupGetter__(property) !== null) : false);
+    }
+  };
+
+  PrettyPrinter.prototype.emitArray = j$.unimplementedMethod_;
+  PrettyPrinter.prototype.emitObject = j$.unimplementedMethod_;
+  PrettyPrinter.prototype.emitScalar = j$.unimplementedMethod_;
+  PrettyPrinter.prototype.emitString = j$.unimplementedMethod_;
+
+  function StringPrettyPrinter() {
+    PrettyPrinter.call(this);
+
+    this.string = '';
+  }
+
+  j$.util.inherit(StringPrettyPrinter, PrettyPrinter);
+
+  StringPrettyPrinter.prototype.emitScalar = function(value) {
+    this.append(value);
+  };
+
+  StringPrettyPrinter.prototype.emitString = function(value) {
+    this.append('\'' + value + '\'');
+  };
+
+  StringPrettyPrinter.prototype.emitArray = function(array) {
+    if (this.ppNestLevel_ > j$.MAX_PRETTY_PRINT_DEPTH) {
+      this.append('Array');
+      return;
+    }
+    var length = Math.min(array.length, j$.MAX_PRETTY_PRINT_ARRAY_LENGTH);
+    this.append('[ ');
+    for (var i = 0; i < length; i++) {
+      if (i > 0) {
+        this.append(', ');
+      }
+      this.format(array[i]);
+    }
+    if(array.length > length){
+      this.append(', ...');
+    }
+
+    var self = this;
+    var first = array.length === 0;
+    this.iterateObject(array, function(property, isGetter) {
+      if (property.match(/^\d+$/)) {
+        return;
+      }
+
+      if (first) {
+        first = false;
+      } else {
+        self.append(', ');
+      }
+
+      self.formatProperty(array, property, isGetter);
+    });
+
+    this.append(' ]');
+  };
+
+  StringPrettyPrinter.prototype.emitObject = function(obj) {
+    var constructorName = obj.constructor ? j$.fnNameFor(obj.constructor) : 'null';
+    this.append(constructorName);
+
+    if (this.ppNestLevel_ > j$.MAX_PRETTY_PRINT_DEPTH) {
+      return;
+    }
+
+    var self = this;
+    this.append('({ ');
+    var first = true;
+
+    this.iterateObject(obj, function(property, isGetter) {
+      if (first) {
+        first = false;
+      } else {
+        self.append(', ');
+      }
+
+      self.formatProperty(obj, property, isGetter);
+    });
+
+    this.append(' })');
+  };
+
+  StringPrettyPrinter.prototype.formatProperty = function(obj, property, isGetter) {
+      this.append(property);
+      this.append(': ');
+      if (isGetter) {
+        this.append('<getter>');
+      } else {
+        this.format(obj[property]);
+      }
+  };
+
+  StringPrettyPrinter.prototype.append = function(value) {
+    this.string += value;
+  };
+
+  return function(value) {
+    var stringPrettyPrinter = new StringPrettyPrinter();
+    stringPrettyPrinter.format(value);
+    return stringPrettyPrinter.string;
+  };
+};
+
+getJasmineRequireObj().QueueRunner = function(j$) {
+
+  function once(fn) {
+    var called = false;
+    return function() {
+      if (!called) {
+        called = true;
+        fn();
+      }
+    };
+  }
+
+  function QueueRunner(attrs) {
+    this.queueableFns = attrs.queueableFns || [];
+    this.onComplete = attrs.onComplete || function() {};
+    this.clearStack = attrs.clearStack || function(fn) {fn();};
+    this.onException = attrs.onException || function() {};
+    this.catchException = attrs.catchException || function() { return true; };
+    this.userContext = attrs.userContext || {};
+    this.timeout = attrs.timeout || {setTimeout: setTimeout, clearTimeout: clearTimeout};
+    this.fail = attrs.fail || function() {};
+  }
+
+  QueueRunner.prototype.execute = function() {
+    this.run(this.queueableFns, 0);
+  };
+
+  QueueRunner.prototype.run = function(queueableFns, recursiveIndex) {
+    var length = queueableFns.length,
+      self = this,
+      iterativeIndex;
+
+
+    for(iterativeIndex = recursiveIndex; iterativeIndex < length; iterativeIndex++) {
+      var queueableFn = queueableFns[iterativeIndex];
+      if (queueableFn.fn.length > 0) {
+        attemptAsync(queueableFn);
+        return;
+      } else {
+        attemptSync(queueableFn);
+      }
+    }
+
+    var runnerDone = iterativeIndex >= length;
+
+    if (runnerDone) {
+      this.clearStack(this.onComplete);
+    }
+
+    function attemptSync(queueableFn) {
+      try {
+        queueableFn.fn.call(self.userContext);
+      } catch (e) {
+        handleException(e, queueableFn);
+      }
+    }
+
+    function attemptAsync(queueableFn) {
+      var clearTimeout = function () {
+          Function.prototype.apply.apply(self.timeout.clearTimeout, [j$.getGlobal(), [timeoutId]]);
+        },
+        next = once(function () {
+          clearTimeout(timeoutId);
+          self.run(queueableFns, iterativeIndex + 1);
+        }),
+        timeoutId;
+
+      next.fail = function() {
+        self.fail.apply(null, arguments);
+        next();
+      };
+
+      if (queueableFn.timeout) {
+        timeoutId = Function.prototype.apply.apply(self.timeout.setTimeout, [j$.getGlobal(), [function() {
+          var error = new Error('Timeout - Async callback was not invoked within timeout specified by jasmine.DEFAULT_TIMEOUT_INTERVAL.');
+          onException(error, queueableFn);
+          next();
+        }, queueableFn.timeout()]]);
+      }
+
+      try {
+        queueableFn.fn.call(self.userContext, next);
+      } catch (e) {
+        handleException(e, queueableFn);
+        next();
+      }
+    }
+
+    function onException(e, queueableFn) {
+      self.onException(e);
+    }
+
+    function handleException(e, queueableFn) {
+      onException(e, queueableFn);
+      if (!self.catchException(e)) {
+        //TODO: set a var when we catch an exception and
+        //use a finally block to close the loop in a nice way..
+        throw e;
+      }
+    }
+  };
+
+  return QueueRunner;
+};
+
+getJasmineRequireObj().ReportDispatcher = function() {
+  function ReportDispatcher(methods) {
+
+    var dispatchedMethods = methods || [];
+
+    for (var i = 0; i < dispatchedMethods.length; i++) {
+      var method = dispatchedMethods[i];
+      this[method] = (function(m) {
+        return function() {
+          dispatch(m, arguments);
+        };
+      }(method));
+    }
+
+    var reporters = [];
+
+    this.addReporter = function(reporter) {
+      reporters.push(reporter);
+    };
+
+    return this;
+
+    function dispatch(method, args) {
+      for (var i = 0; i < reporters.length; i++) {
+        var reporter = reporters[i];
+        if (reporter[method]) {
+          reporter[method].apply(reporter, args);
+        }
+      }
+    }
+  }
+
+  return ReportDispatcher;
+};
+
+
+getJasmineRequireObj().SpyRegistry = function(j$) {
+
+  function SpyRegistry(options) {
+    options = options || {};
+    var currentSpies = options.currentSpies || function() { return []; };
+
+    this.spyOn = function(obj, methodName) {
+      if (j$.util.isUndefined(obj)) {
+        throw new Error('spyOn could not find an object to spy upon for ' + methodName + '()');
+      }
+
+      if (j$.util.isUndefined(methodName)) {
+        throw new Error('No method name supplied');
+      }
+
+      if (j$.util.isUndefined(obj[methodName])) {
+        throw new Error(methodName + '() method does not exist');
+      }
+
+      if (obj[methodName] && j$.isSpy(obj[methodName])) {
+        //TODO?: should this return the current spy? Downside: may cause user confusion about spy state
+        throw new Error(methodName + ' has already been spied upon');
+      }
+
+      var spy = j$.createSpy(methodName, obj[methodName]);
+
+      currentSpies().push({
+        spy: spy,
+        baseObj: obj,
+        methodName: methodName,
+        originalValue: obj[methodName]
+      });
+
+      obj[methodName] = spy;
+
+      return spy;
+    };
+
+    this.clearSpies = function() {
+      var spies = currentSpies();
+      for (var i = 0; i < spies.length; i++) {
+        var spyEntry = spies[i];
+        spyEntry.baseObj[spyEntry.methodName] = spyEntry.originalValue;
+      }
+    };
+  }
+
+  return SpyRegistry;
+};
+
+getJasmineRequireObj().SpyStrategy = function() {
+
+  function SpyStrategy(options) {
+    options = options || {};
+
+    var identity = options.name || 'unknown',
+        originalFn = options.fn || function() {},
+        getSpy = options.getSpy || function() {},
+        plan = function() {};
+
+    this.identity = function() {
+      return identity;
+    };
+
+    this.exec = function() {
+      return plan.apply(this, arguments);
+    };
+
+    this.callThrough = function() {
+      plan = originalFn;
+      return getSpy();
+    };
+
+    this.returnValue = function(value) {
+      plan = function() {
+        return value;
+      };
+      return getSpy();
+    };
+
+    this.returnValues = function() {
+      var values = Array.prototype.slice.call(arguments);
+      plan = function () {
+        return values.shift();
+      };
+      return getSpy();
+    };
+
+    this.throwError = function(something) {
+      var error = (something instanceof Error) ? something : new Error(something);
+      plan = function() {
+        throw error;
+      };
+      return getSpy();
+    };
+
+    this.callFake = function(fn) {
+      plan = fn;
+      return getSpy();
+    };
+
+    this.stub = function(fn) {
+      plan = function() {};
+      return getSpy();
+    };
+  }
+
+  return SpyStrategy;
+};
+
+getJasmineRequireObj().Suite = function(j$) {
+  function Suite(attrs) {
+    this.env = attrs.env;
+    this.id = attrs.id;
+    this.parentSuite = attrs.parentSuite;
+    this.description = attrs.description;
+    this.expectationFactory = attrs.expectationFactory;
+    this.expectationResultFactory = attrs.expectationResultFactory;
+    this.throwOnExpectationFailure = !!attrs.throwOnExpectationFailure;
+
+    this.beforeFns = [];
+    this.afterFns = [];
+    this.beforeAllFns = [];
+    this.afterAllFns = [];
+    this.disabled = false;
+
+    this.children = [];
+
+    this.result = {
+      id: this.id,
+      description: this.description,
+      fullName: this.getFullName(),
+      failedExpectations: []
+    };
+  }
+
+  Suite.prototype.expect = function(actual) {
+    return this.expectationFactory(actual, this);
+  };
+
+  Suite.prototype.getFullName = function() {
+    var fullName = this.description;
+    for (var parentSuite = this.parentSuite; parentSuite; parentSuite = parentSuite.parentSuite) {
+      if (parentSuite.parentSuite) {
+        fullName = parentSuite.description + ' ' + fullName;
+      }
+    }
+    return fullName;
+  };
+
+  Suite.prototype.disable = function() {
+    this.disabled = true;
+  };
+
+  Suite.prototype.beforeEach = function(fn) {
+    this.beforeFns.unshift(fn);
+  };
+
+  Suite.prototype.beforeAll = function(fn) {
+    this.beforeAllFns.push(fn);
+  };
+
+  Suite.prototype.afterEach = function(fn) {
+    this.afterFns.unshift(fn);
+  };
+
+  Suite.prototype.afterAll = function(fn) {
+    this.afterAllFns.push(fn);
+  };
+
+  Suite.prototype.addChild = function(child) {
+    this.children.push(child);
+  };
+
+  Suite.prototype.status = function() {
+    if (this.disabled) {
+      return 'disabled';
+    }
+
+    if (this.result.failedExpectations.length > 0) {
+      return 'failed';
+    } else {
+      return 'finished';
+    }
+  };
+
+  Suite.prototype.isExecutable = function() {
+    return !this.disabled;
+  };
+
+  Suite.prototype.canBeReentered = function() {
+    return this.beforeAllFns.length === 0 && this.afterAllFns.length === 0;
+  };
+
+  Suite.prototype.getResult = function() {
+    this.result.status = this.status();
+    return this.result;
+  };
+
+  Suite.prototype.sharedUserContext = function() {
+    if (!this.sharedContext) {
+      this.sharedContext = this.parentSuite ? clone(this.parentSuite.sharedUserContext()) : {};
+    }
+
+    return this.sharedContext;
+  };
+
+  Suite.prototype.clonedSharedUserContext = function() {
+    return clone(this.sharedUserContext());
+  };
+
+  Suite.prototype.onException = function() {
+    if (arguments[0] instanceof j$.errors.ExpectationFailed) {
+      return;
+    }
+
+    if(isAfterAll(this.children)) {
+      var data = {
+        matcherName: '',
+        passed: false,
+        expected: '',
+        actual: '',
+        error: arguments[0]
+      };
+      this.result.failedExpectations.push(this.expectationResultFactory(data));
+    } else {
+      for (var i = 0; i < this.children.length; i++) {
+        var child = this.children[i];
+        child.onException.apply(child, arguments);
+      }
+    }
+  };
+
+  Suite.prototype.addExpectationResult = function () {
+    if(isAfterAll(this.children) && isFailure(arguments)){
+      var data = arguments[1];
+      this.result.failedExpectations.push(this.expectationResultFactory(data));
+      if(this.throwOnExpectationFailure) {
+        throw new j$.errors.ExpectationFailed();
+      }
+    } else {
+      for (var i = 0; i < this.children.length; i++) {
+        var child = this.children[i];
+        try {
+          child.addExpectationResult.apply(child, arguments);
+        } catch(e) {
+          // keep going
+        }
+      }
+    }
+  };
+
+  function isAfterAll(children) {
+    return children && children[0].result.status;
+  }
+
+  function isFailure(args) {
+    return !args[0];
+  }
+
+  function clone(obj) {
+    var clonedObj = {};
+    for (var prop in obj) {
+      if (obj.hasOwnProperty(prop)) {
+        clonedObj[prop] = obj[prop];
+      }
+    }
+
+    return clonedObj;
+  }
+
+  return Suite;
+};
+
+if (typeof window == void 0 && typeof exports == 'object') {
+  exports.Suite = jasmineRequire.Suite;
+}
+
+getJasmineRequireObj().Timer = function() {
+  var defaultNow = (function(Date) {
+    return function() { return new Date().getTime(); };
+  })(Date);
+
+  function Timer(options) {
+    options = options || {};
+
+    var now = options.now || defaultNow,
+      startTime;
+
+    this.start = function() {
+      startTime = now();
+    };
+
+    this.elapsed = function() {
+      return now() - startTime;
+    };
+  }
+
+  return Timer;
+};
+
+getJasmineRequireObj().TreeProcessor = function() {
+  function TreeProcessor(attrs) {
+    var tree = attrs.tree,
+        runnableIds = attrs.runnableIds,
+        queueRunnerFactory = attrs.queueRunnerFactory,
+        nodeStart = attrs.nodeStart || function() {},
+        nodeComplete = attrs.nodeComplete || function() {},
+        stats = { valid: true },
+        processed = false,
+        defaultMin = Infinity,
+        defaultMax = 1 - Infinity;
+
+    this.processTree = function() {
+      processNode(tree, false);
+      processed = true;
+      return stats;
+    };
+
+    this.execute = function(done) {
+      if (!processed) {
+        this.processTree();
+      }
+
+      if (!stats.valid) {
+        throw 'invalid order';
+      }
+
+      var childFns = wrapChildren(tree, 0);
+
+      queueRunnerFactory({
+        queueableFns: childFns,
+        onException: function() {
+          tree.onException.apply(tree, arguments);
+        },
+        onComplete: done
+      });
+    };
+
+    function runnableIndex(id) {
+      for (var i = 0; i < runnableIds.length; i++) {
+        if (runnableIds[i] === id) {
+          return i;
+        }
+      }
+    }
+
+    function processNode(node, parentEnabled) {
+      var executableIndex = runnableIndex(node.id);
+
+      if (executableIndex !== undefined) {
+        parentEnabled = true;
+      }
+
+      parentEnabled = parentEnabled && node.isExecutable();
+
+      if (!node.children) {
+        stats[node.id] = {
+          executable: parentEnabled && node.isExecutable(),
+          segments: [{
+            index: 0,
+            owner: node,
+            nodes: [node],
+            min: startingMin(executableIndex),
+            max: startingMax(executableIndex)
+          }]
+        };
+      } else {
+        var hasExecutableChild = false;
+
+        for (var i = 0; i < node.children.length; i++) {
+          var child = node.children[i];
+
+          processNode(child, parentEnabled);
+
+          if (!stats.valid) {
+            return;
+          }
+
+          var childStats = stats[child.id];
+
+          hasExecutableChild = hasExecutableChild || childStats.executable;
+        }
+
+        stats[node.id] = {
+          executable: hasExecutableChild
+        };
+
+        segmentChildren(node, stats[node.id], executableIndex);
+
+        if (!node.canBeReentered() && stats[node.id].segments.length > 1) {
+          stats = { valid: false };
+        }
+      }
+    }
+
+    function startingMin(executableIndex) {
+      return executableIndex === undefined ? defaultMin : executableIndex;
+    }
+
+    function startingMax(executableIndex) {
+      return executableIndex === undefined ? defaultMax : executableIndex;
+    }
+
+    function segmentChildren(node, nodeStats, executableIndex) {
+      var currentSegment = { index: 0, owner: node, nodes: [], min: startingMin(executableIndex), max: startingMax(executableIndex) },
+          result = [currentSegment],
+          lastMax = defaultMax,
+          orderedChildSegments = orderChildSegments(node.children);
+
+      function isSegmentBoundary(minIndex) {
+        return lastMax !== defaultMax && minIndex !== defaultMin && lastMax < minIndex - 1;
+      }
+
+      for (var i = 0; i < orderedChildSegments.length; i++) {
+        var childSegment = orderedChildSegments[i],
+          maxIndex = childSegment.max,
+          minIndex = childSegment.min;
+
+        if (isSegmentBoundary(minIndex)) {
+          currentSegment = {index: result.length, owner: node, nodes: [], min: defaultMin, max: defaultMax};
+          result.push(currentSegment);
+        }
+
+        currentSegment.nodes.push(childSegment);
+        currentSegment.min = Math.min(currentSegment.min, minIndex);
+        currentSegment.max = Math.max(currentSegment.max, maxIndex);
+        lastMax = maxIndex;
+      }
+
+      nodeStats.segments = result;
+    }
+
+    function orderChildSegments(children) {
+      var result = [];
+
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i],
+            segments = stats[child.id].segments;
+
+        for (var j = 0; j < segments.length; j++) {
+          result.push(segments[j]);
+        }
+      }
+
+      result.sort(function(a, b) {
+        if (a.min === null) {
+          return b.min === null ? 0 : 1;
+        }
+
+        if (b.min === null) {
+          return -1;
+        }
+
+        return a.min - b.min;
+      });
+
+      return result;
+    }
+
+    function executeNode(node, segmentNumber) {
+      if (node.children) {
+        return {
+          fn: function(done) {
+            nodeStart(node);
+
+            queueRunnerFactory({
+              onComplete: function() {
+                nodeComplete(node, node.getResult());
+                done();
+              },
+              queueableFns: wrapChildren(node, segmentNumber),
+              userContext: node.sharedUserContext(),
+              onException: function() {
+                node.onException.apply(node, arguments);
+              }
+            });
+          }
+        };
+      } else {
+        return {
+          fn: function(done) { node.execute(done, stats[node.id].executable); }
+        };
+      }
+    }
+
+    function wrapChildren(node, segmentNumber) {
+      var result = [],
+          segmentChildren = stats[node.id].segments[segmentNumber].nodes;
+
+      for (var i = 0; i < segmentChildren.length; i++) {
+        result.push(executeNode(segmentChildren[i].owner, segmentChildren[i].index));
+      }
+
+      if (!stats[node.id].executable) {
+        return result;
+      }
+
+      return node.beforeAllFns.concat(result).concat(node.afterAllFns);
+    }
+  }
+
+  return TreeProcessor;
+};
+
+getJasmineRequireObj().Any = function(j$) {
+
+  function Any(expectedObject) {
+    this.expectedObject = expectedObject;
+  }
+
+  Any.prototype.asymmetricMatch = function(other) {
+    if (this.expectedObject == String) {
+      return typeof other == 'string' || other instanceof String;
+    }
+
+    if (this.expectedObject == Number) {
+      return typeof other == 'number' || other instanceof Number;
+    }
+
+    if (this.expectedObject == Function) {
+      return typeof other == 'function' || other instanceof Function;
+    }
+
+    if (this.expectedObject == Object) {
+      return typeof other == 'object';
+    }
+
+    if (this.expectedObject == Boolean) {
+      return typeof other == 'boolean';
+    }
+
+    return other instanceof this.expectedObject;
+  };
+
+  Any.prototype.jasmineToString = function() {
+    return '<jasmine.any(' + j$.fnNameFor(this.expectedObject) + ')>';
+  };
+
+  return Any;
+};
+
+getJasmineRequireObj().Anything = function(j$) {
+
+  function Anything() {}
+
+  Anything.prototype.asymmetricMatch = function(other) {
+    return !j$.util.isUndefined(other) && other !== null;
+  };
+
+  Anything.prototype.jasmineToString = function() {
+    return '<jasmine.anything>';
+  };
+
+  return Anything;
+};
+
+getJasmineRequireObj().ArrayContaining = function(j$) {
+  function ArrayContaining(sample) {
+    this.sample = sample;
+  }
+
+  ArrayContaining.prototype.asymmetricMatch = function(other) {
+    var className = Object.prototype.toString.call(this.sample);
+    if (className !== '[object Array]') { throw new Error('You must provide an array to arrayContaining, not \'' + this.sample + '\'.'); }
+
+    for (var i = 0; i < this.sample.length; i++) {
+      var item = this.sample[i];
+      if (!j$.matchersUtil.contains(other, item)) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  ArrayContaining.prototype.jasmineToString = function () {
+    return '<jasmine.arrayContaining(' + jasmine.pp(this.sample) +')>';
+  };
+
+  return ArrayContaining;
+};
+
+getJasmineRequireObj().ObjectContaining = function(j$) {
+
+  function ObjectContaining(sample) {
+    this.sample = sample;
+  }
+
+  function getPrototype(obj) {
+    if (Object.getPrototypeOf) {
+      return Object.getPrototypeOf(obj);
+    }
+
+    if (obj.constructor.prototype == obj) {
+      return null;
+    }
+
+    return obj.constructor.prototype;
+  }
+
+  function hasProperty(obj, property) {
+    if (!obj) {
+      return false;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(obj, property)) {
+      return true;
+    }
+
+    return hasProperty(getPrototype(obj), property);
+  }
+
+  ObjectContaining.prototype.asymmetricMatch = function(other) {
+    if (typeof(this.sample) !== 'object') { throw new Error('You must provide an object to objectContaining, not \''+this.sample+'\'.'); }
+
+    for (var property in this.sample) {
+      if (!hasProperty(other, property) ||
+          !j$.matchersUtil.equals(this.sample[property], other[property])) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  ObjectContaining.prototype.jasmineToString = function() {
+    return '<jasmine.objectContaining(' + j$.pp(this.sample) + ')>';
+  };
+
+  return ObjectContaining;
+};
+
+getJasmineRequireObj().StringMatching = function(j$) {
+
+  function StringMatching(expected) {
+    if (!j$.isString_(expected) && !j$.isA_('RegExp', expected)) {
+      throw new Error('Expected is not a String or a RegExp');
+    }
+
+    this.regexp = new RegExp(expected);
+  }
+
+  StringMatching.prototype.asymmetricMatch = function(other) {
+    return this.regexp.test(other);
+  };
+
+  StringMatching.prototype.jasmineToString = function() {
+    return '<jasmine.stringMatching(' + this.regexp + ')>';
+  };
+
+  return StringMatching;
+};
+
+getJasmineRequireObj().errors = function() {
+  function ExpectationFailed() {}
+
+  ExpectationFailed.prototype = new Error();
+  ExpectationFailed.prototype.constructor = ExpectationFailed;
+
+  return {
+    ExpectationFailed: ExpectationFailed
+  };
+};
+getJasmineRequireObj().matchersUtil = function(j$) {
+  // TODO: what to do about jasmine.pp not being inject? move to JSON.stringify? gut PrettyPrinter?
+
+  return {
+    equals: function(a, b, customTesters) {
+      customTesters = customTesters || [];
+
+      return eq(a, b, [], [], customTesters);
+    },
+
+    contains: function(haystack, needle, customTesters) {
+      customTesters = customTesters || [];
+
+      if ((Object.prototype.toString.apply(haystack) === '[object Array]') ||
+        (!!haystack && !haystack.indexOf))
+      {
+        for (var i = 0; i < haystack.length; i++) {
+          if (eq(haystack[i], needle, [], [], customTesters)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      return !!haystack && haystack.indexOf(needle) >= 0;
+    },
+
+    buildFailureMessage: function() {
+      var args = Array.prototype.slice.call(arguments, 0),
+        matcherName = args[0],
+        isNot = args[1],
+        actual = args[2],
+        expected = args.slice(3),
+        englishyPredicate = matcherName.replace(/[A-Z]/g, function(s) { return ' ' + s.toLowerCase(); });
+
+      var message = 'Expected ' +
+        j$.pp(actual) +
+        (isNot ? ' not ' : ' ') +
+        englishyPredicate;
+
+      if (expected.length > 0) {
+        for (var i = 0; i < expected.length; i++) {
+          if (i > 0) {
+            message += ',';
+          }
+          message += ' ' + j$.pp(expected[i]);
+        }
+      }
+
+      return message + '.';
+    }
+  };
+
+  function isAsymmetric(obj) {
+    return obj && j$.isA_('Function', obj.asymmetricMatch);
+  }
+
+  function asymmetricMatch(a, b) {
+    var asymmetricA = isAsymmetric(a),
+        asymmetricB = isAsymmetric(b);
+
+    if (asymmetricA && asymmetricB) {
+      return undefined;
+    }
+
+    if (asymmetricA) {
+      return a.asymmetricMatch(b);
+    }
+
+    if (asymmetricB) {
+      return b.asymmetricMatch(a);
+    }
+  }
+
+  // Equality function lovingly adapted from isEqual in
+  //   [Underscore](http://underscorejs.org)
+  function eq(a, b, aStack, bStack, customTesters) {
+    var result = true;
+
+    var asymmetricResult = asymmetricMatch(a, b);
+    if (!j$.util.isUndefined(asymmetricResult)) {
+      return asymmetricResult;
+    }
+
+    for (var i = 0; i < customTesters.length; i++) {
+      var customTesterResult = customTesters[i](a, b);
+      if (!j$.util.isUndefined(customTesterResult)) {
+        return customTesterResult;
+      }
+    }
+
+    if (a instanceof Error && b instanceof Error) {
+      return a.message == b.message;
+    }
+
+    // Identical objects are equal. `0 === -0`, but they aren't identical.
+    // See the [Harmony `egal` proposal](http://wiki.ecmascript.org/doku.php?id=harmony:egal).
+    if (a === b) { return a !== 0 || 1 / a == 1 / b; }
+    // A strict comparison is necessary because `null == undefined`.
+    if (a === null || b === null) { return a === b; }
+    var className = Object.prototype.toString.call(a);
+    if (className != Object.prototype.toString.call(b)) { return false; }
+    switch (className) {
+      // Strings, numbers, dates, and booleans are compared by value.
+      case '[object String]':
+        // Primitives and their corresponding object wrappers are equivalent; thus, `"5"` is
+        // equivalent to `new String("5")`.
+        return a == String(b);
+      case '[object Number]':
+        // `NaN`s are equivalent, but non-reflexive. An `egal` comparison is performed for
+        // other numeric values.
+        return a != +a ? b != +b : (a === 0 ? 1 / a == 1 / b : a == +b);
+      case '[object Date]':
+      case '[object Boolean]':
+        // Coerce dates and booleans to numeric primitive values. Dates are compared by their
+        // millisecond representations. Note that invalid dates with millisecond representations
+        // of `NaN` are not equivalent.
+        return +a == +b;
+      // RegExps are compared by their source patterns and flags.
+      case '[object RegExp]':
+        return a.source == b.source &&
+          a.global == b.global &&
+          a.multiline == b.multiline &&
+          a.ignoreCase == b.ignoreCase;
+    }
+    if (typeof a != 'object' || typeof b != 'object') { return false; }
+
+    var aIsDomNode = j$.isDomNode(a);
+    var bIsDomNode = j$.isDomNode(b);
+    if (aIsDomNode && bIsDomNode) {
+      // At first try to use DOM3 method isEqualNode
+      if (a.isEqualNode) {
+        return a.isEqualNode(b);
+      }
+      // IE8 doesn't support isEqualNode, try to use outerHTML && innerText
+      var aIsElement = a instanceof Element;
+      var bIsElement = b instanceof Element;
+      if (aIsElement && bIsElement) {
+        return a.outerHTML == b.outerHTML;
+      }
+      if (aIsElement || bIsElement) {
+        return false;
+      }
+      return a.innerText == b.innerText && a.textContent == b.textContent;
+    }
+    if (aIsDomNode || bIsDomNode) {
+      return false;
+    }
+
+    // Assume equality for cyclic structures. The algorithm for detecting cyclic
+    // structures is adapted from ES 5.1 section 15.12.3, abstract operation `JO`.
+    var length = aStack.length;
+    while (length--) {
+      // Linear search. Performance is inversely proportional to the number of
+      // unique nested structures.
+      if (aStack[length] == a) { return bStack[length] == b; }
+    }
+    // Add the first object to the stack of traversed objects.
+    aStack.push(a);
+    bStack.push(b);
+    var size = 0;
+    // Recursively compare objects and arrays.
+    // Compare array lengths to determine if a deep comparison is necessary.
+    if (className == '[object Array]' && a.length !== b.length) {
+      result = false;
+    }
+
+    if (result) {
+      // Objects with different constructors are not equivalent, but `Object`s
+      // or `Array`s from different frames are.
+      if (className !== '[object Array]') {
+        var aCtor = a.constructor, bCtor = b.constructor;
+        if (aCtor !== bCtor && !(isFunction(aCtor) && aCtor instanceof aCtor &&
+               isFunction(bCtor) && bCtor instanceof bCtor)) {
+          return false;
+        }
+      }
+      // Deep compare objects.
+      for (var key in a) {
+        if (has(a, key)) {
+          // Count the expected number of properties.
+          size++;
+          // Deep compare each member.
+          if (!(result = has(b, key) && eq(a[key], b[key], aStack, bStack, customTesters))) { break; }
+        }
+      }
+      // Ensure that both objects contain the same number of properties.
+      if (result) {
+        for (key in b) {
+          if (has(b, key) && !(size--)) { break; }
+        }
+        result = !size;
+      }
+    }
+    // Remove the first object from the stack of traversed objects.
+    aStack.pop();
+    bStack.pop();
+
+    return result;
+
+    function has(obj, key) {
+      return Object.prototype.hasOwnProperty.call(obj, key);
+    }
+
+    function isFunction(obj) {
+      return typeof obj === 'function';
+    }
+  }
+};
+
+getJasmineRequireObj().toBe = function() {
+  function toBe() {
+    return {
+      compare: function(actual, expected) {
+        return {
+          pass: actual === expected
+        };
+      }
+    };
+  }
+
+  return toBe;
+};
+
+getJasmineRequireObj().toBeCloseTo = function() {
+
+  function toBeCloseTo() {
+    return {
+      compare: function(actual, expected, precision) {
+        if (precision !== 0) {
+          precision = precision || 2;
+        }
+
+        return {
+          pass: Math.abs(expected - actual) < (Math.pow(10, -precision) / 2)
+        };
+      }
+    };
+  }
+
+  return toBeCloseTo;
+};
+
+getJasmineRequireObj().toBeDefined = function() {
+  function toBeDefined() {
+    return {
+      compare: function(actual) {
+        return {
+          pass: (void 0 !== actual)
+        };
+      }
+    };
+  }
+
+  return toBeDefined;
+};
+
+getJasmineRequireObj().toBeFalsy = function() {
+  function toBeFalsy() {
+    return {
+      compare: function(actual) {
+        return {
+          pass: !!!actual
+        };
+      }
+    };
+  }
+
+  return toBeFalsy;
+};
+
+getJasmineRequireObj().toBeGreaterThan = function() {
+
+  function toBeGreaterThan() {
+    return {
+      compare: function(actual, expected) {
+        return {
+          pass: actual > expected
+        };
+      }
+    };
+  }
+
+  return toBeGreaterThan;
+};
+
+
+getJasmineRequireObj().toBeLessThan = function() {
+  function toBeLessThan() {
+    return {
+
+      compare: function(actual, expected) {
+        return {
+          pass: actual < expected
+        };
+      }
+    };
+  }
+
+  return toBeLessThan;
+};
+getJasmineRequireObj().toBeNaN = function(j$) {
+
+  function toBeNaN() {
+    return {
+      compare: function(actual) {
+        var result = {
+          pass: (actual !== actual)
+        };
+
+        if (result.pass) {
+          result.message = 'Expected actual not to be NaN.';
+        } else {
+          result.message = function() { return 'Expected ' + j$.pp(actual) + ' to be NaN.'; };
+        }
+
+        return result;
+      }
+    };
+  }
+
+  return toBeNaN;
+};
+
+getJasmineRequireObj().toBeNull = function() {
+
+  function toBeNull() {
+    return {
+      compare: function(actual) {
+        return {
+          pass: actual === null
+        };
+      }
+    };
+  }
+
+  return toBeNull;
+};
+
+getJasmineRequireObj().toBeTruthy = function() {
+
+  function toBeTruthy() {
+    return {
+      compare: function(actual) {
+        return {
+          pass: !!actual
+        };
+      }
+    };
+  }
+
+  return toBeTruthy;
+};
+
+getJasmineRequireObj().toBeUndefined = function() {
+
+  function toBeUndefined() {
+    return {
+      compare: function(actual) {
+        return {
+          pass: void 0 === actual
+        };
+      }
+    };
+  }
+
+  return toBeUndefined;
+};
+
+getJasmineRequireObj().toContain = function() {
+  function toContain(util, customEqualityTesters) {
+    customEqualityTesters = customEqualityTesters || [];
+
+    return {
+      compare: function(actual, expected) {
+
+        return {
+          pass: util.contains(actual, expected, customEqualityTesters)
+        };
+      }
+    };
+  }
+
+  return toContain;
+};
+
+getJasmineRequireObj().toEqual = function() {
+
+  function toEqual(util, customEqualityTesters) {
+    customEqualityTesters = customEqualityTesters || [];
+
+    return {
+      compare: function(actual, expected) {
+        var result = {
+          pass: false
+        };
+
+        result.pass = util.equals(actual, expected, customEqualityTesters);
+
+        return result;
+      }
+    };
+  }
+
+  return toEqual;
+};
+
+getJasmineRequireObj().toHaveBeenCalled = function(j$) {
+
+  function toHaveBeenCalled() {
+    return {
+      compare: function(actual) {
+        var result = {};
+
+        if (!j$.isSpy(actual)) {
+          throw new Error('Expected a spy, but got ' + j$.pp(actual) + '.');
+        }
+
+        if (arguments.length > 1) {
+          throw new Error('toHaveBeenCalled does not take arguments, use toHaveBeenCalledWith');
+        }
+
+        result.pass = actual.calls.any();
+
+        result.message = result.pass ?
+          'Expected spy ' + actual.and.identity() + ' not to have been called.' :
+          'Expected spy ' + actual.and.identity() + ' to have been called.';
+
+        return result;
+      }
+    };
+  }
+
+  return toHaveBeenCalled;
+};
+
+getJasmineRequireObj().toHaveBeenCalledWith = function(j$) {
+
+  function toHaveBeenCalledWith(util, customEqualityTesters) {
+    return {
+      compare: function() {
+        var args = Array.prototype.slice.call(arguments, 0),
+          actual = args[0],
+          expectedArgs = args.slice(1),
+          result = { pass: false };
+
+        if (!j$.isSpy(actual)) {
+          throw new Error('Expected a spy, but got ' + j$.pp(actual) + '.');
+        }
+
+        if (!actual.calls.any()) {
+          result.message = function() { return 'Expected spy ' + actual.and.identity() + ' to have been called with ' + j$.pp(expectedArgs) + ' but it was never called.'; };
+          return result;
+        }
+
+        if (util.contains(actual.calls.allArgs(), expectedArgs, customEqualityTesters)) {
+          result.pass = true;
+          result.message = function() { return 'Expected spy ' + actual.and.identity() + ' not to have been called with ' + j$.pp(expectedArgs) + ' but it was.'; };
+        } else {
+          result.message = function() { return 'Expected spy ' + actual.and.identity() + ' to have been called with ' + j$.pp(expectedArgs) + ' but actual calls were ' + j$.pp(actual.calls.allArgs()).replace(/^\[ | \]$/g, '') + '.'; };
+        }
+
+        return result;
+      }
+    };
+  }
+
+  return toHaveBeenCalledWith;
+};
+
+getJasmineRequireObj().toMatch = function(j$) {
+
+  function toMatch() {
+    return {
+      compare: function(actual, expected) {
+        if (!j$.isString_(expected) && !j$.isA_('RegExp', expected)) {
+          throw new Error('Expected is not a String or a RegExp');
+        }
+
+        var regexp = new RegExp(expected);
+
+        return {
+          pass: regexp.test(actual)
+        };
+      }
+    };
+  }
+
+  return toMatch;
+};
+
+getJasmineRequireObj().toThrow = function(j$) {
+
+  function toThrow(util) {
+    return {
+      compare: function(actual, expected) {
+        var result = { pass: false },
+          threw = false,
+          thrown;
+
+        if (typeof actual != 'function') {
+          throw new Error('Actual is not a Function');
+        }
+
+        try {
+          actual();
+        } catch (e) {
+          threw = true;
+          thrown = e;
+        }
+
+        if (!threw) {
+          result.message = 'Expected function to throw an exception.';
+          return result;
+        }
+
+        if (arguments.length == 1) {
+          result.pass = true;
+          result.message = function() { return 'Expected function not to throw, but it threw ' + j$.pp(thrown) + '.'; };
+
+          return result;
+        }
+
+        if (util.equals(thrown, expected)) {
+          result.pass = true;
+          result.message = function() { return 'Expected function not to throw ' + j$.pp(expected) + '.'; };
+        } else {
+          result.message = function() { return 'Expected function to throw ' + j$.pp(expected) + ', but it threw ' +  j$.pp(thrown) + '.'; };
+        }
+
+        return result;
+      }
+    };
+  }
+
+  return toThrow;
+};
+
+getJasmineRequireObj().toThrowError = function(j$) {
+  function toThrowError (util) {
+    return {
+      compare: function(actual) {
+        var threw = false,
+          pass = {pass: true},
+          fail = {pass: false},
+          thrown;
+
+        if (typeof actual != 'function') {
+          throw new Error('Actual is not a Function');
+        }
+
+        var errorMatcher = getMatcher.apply(null, arguments);
+
+        try {
+          actual();
+        } catch (e) {
+          threw = true;
+          thrown = e;
+        }
+
+        if (!threw) {
+          fail.message = 'Expected function to throw an Error.';
+          return fail;
+        }
+
+        if (!(thrown instanceof Error)) {
+          fail.message = function() { return 'Expected function to throw an Error, but it threw ' + j$.pp(thrown) + '.'; };
+          return fail;
+        }
+
+        if (errorMatcher.hasNoSpecifics()) {
+          pass.message = 'Expected function not to throw an Error, but it threw ' + j$.fnNameFor(thrown) + '.';
+          return pass;
+        }
+
+        if (errorMatcher.matches(thrown)) {
+          pass.message = function() {
+            return 'Expected function not to throw ' + errorMatcher.errorTypeDescription + errorMatcher.messageDescription() + '.';
+          };
+          return pass;
+        } else {
+          fail.message = function() {
+            return 'Expected function to throw ' + errorMatcher.errorTypeDescription + errorMatcher.messageDescription() +
+              ', but it threw ' + errorMatcher.thrownDescription(thrown) + '.';
+          };
+          return fail;
+        }
+      }
+    };
+
+    function getMatcher() {
+      var expected = null,
+          errorType = null;
+
+      if (arguments.length == 2) {
+        expected = arguments[1];
+        if (isAnErrorType(expected)) {
+          errorType = expected;
+          expected = null;
+        }
+      } else if (arguments.length > 2) {
+        errorType = arguments[1];
+        expected = arguments[2];
+        if (!isAnErrorType(errorType)) {
+          throw new Error('Expected error type is not an Error.');
+        }
+      }
+
+      if (expected && !isStringOrRegExp(expected)) {
+        if (errorType) {
+          throw new Error('Expected error message is not a string or RegExp.');
+        } else {
+          throw new Error('Expected is not an Error, string, or RegExp.');
+        }
+      }
+
+      function messageMatch(message) {
+        if (typeof expected == 'string') {
+          return expected == message;
+        } else {
+          return expected.test(message);
+        }
+      }
+
+      return {
+        errorTypeDescription: errorType ? j$.fnNameFor(errorType) : 'an exception',
+        thrownDescription: function(thrown) {
+          var thrownName = errorType ? j$.fnNameFor(thrown.constructor) : 'an exception',
+              thrownMessage = '';
+
+          if (expected) {
+            thrownMessage = ' with message ' + j$.pp(thrown.message);
+          }
+
+          return thrownName + thrownMessage;
+        },
+        messageDescription: function() {
+          if (expected === null) {
+            return '';
+          } else if (expected instanceof RegExp) {
+            return ' with a message matching ' + j$.pp(expected);
+          } else {
+            return ' with message ' + j$.pp(expected);
+          }
+        },
+        hasNoSpecifics: function() {
+          return expected === null && errorType === null;
+        },
+        matches: function(error) {
+          return (errorType === null || error instanceof errorType) &&
+            (expected === null || messageMatch(error.message));
+        }
+      };
+    }
+
+    function isStringOrRegExp(potential) {
+      return potential instanceof RegExp || (typeof potential == 'string');
+    }
+
+    function isAnErrorType(type) {
+      if (typeof type !== 'function') {
+        return false;
+      }
+
+      var Surrogate = function() {};
+      Surrogate.prototype = type.prototype;
+      return (new Surrogate()) instanceof Error;
+    }
+  }
+
+  return toThrowError;
+};
+
+getJasmineRequireObj().interface = function(jasmine, env) {
+  var jasmineInterface = {
+    describe: function(description, specDefinitions) {
+      return env.describe(description, specDefinitions);
+    },
+
+    xdescribe: function(description, specDefinitions) {
+      return env.xdescribe(description, specDefinitions);
+    },
+
+    fdescribe: function(description, specDefinitions) {
+      return env.fdescribe(description, specDefinitions);
+    },
+
+    it: function() {
+      return env.it.apply(env, arguments);
+    },
+
+    xit: function() {
+      return env.xit.apply(env, arguments);
+    },
+
+    fit: function() {
+      return env.fit.apply(env, arguments);
+    },
+
+    beforeEach: function() {
+      return env.beforeEach.apply(env, arguments);
+    },
+
+    afterEach: function() {
+      return env.afterEach.apply(env, arguments);
+    },
+
+    beforeAll: function() {
+      return env.beforeAll.apply(env, arguments);
+    },
+
+    afterAll: function() {
+      return env.afterAll.apply(env, arguments);
+    },
+
+    expect: function(actual) {
+      return env.expect(actual);
+    },
+
+    pending: function() {
+      return env.pending.apply(env, arguments);
+    },
+
+    fail: function() {
+      return env.fail.apply(env, arguments);
+    },
+
+    spyOn: function(obj, methodName) {
+      return env.spyOn(obj, methodName);
+    },
+
+    jsApiReporter: new jasmine.JsApiReporter({
+      timer: new jasmine.Timer()
+    }),
+
+    jasmine: jasmine
+  };
+
+  jasmine.addCustomEqualityTester = function(tester) {
+    env.addCustomEqualityTester(tester);
+  };
+
+  jasmine.addMatchers = function(matchers) {
+    return env.addMatchers(matchers);
+  };
+
+  jasmine.clock = function() {
+    return env.clock;
+  };
+
+  return jasmineInterface;
+};
+
+getJasmineRequireObj().version = function() {
+  return '2.3.2';
+};
+
+/*
+Copyright (c) 2008-2015 Pivotal Labs
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+jasmineRequire.html = function(j$) {
+  j$.ResultsNode = jasmineRequire.ResultsNode();
+  j$.HtmlReporter = jasmineRequire.HtmlReporter(j$);
+  j$.QueryString = jasmineRequire.QueryString();
+  j$.HtmlSpecFilter = jasmineRequire.HtmlSpecFilter();
+};
+
+jasmineRequire.HtmlReporter = function(j$) {
+
+  var noopTimer = {
+    start: function() {},
+    elapsed: function() { return 0; }
+  };
+
+  function HtmlReporter(options) {
+    var env = options.env || {},
+      getContainer = options.getContainer,
+      createElement = options.createElement,
+      createTextNode = options.createTextNode,
+      onRaiseExceptionsClick = options.onRaiseExceptionsClick || function() {},
+      onThrowExpectationsClick = options.onThrowExpectationsClick || function() {},
+      addToExistingQueryString = options.addToExistingQueryString || defaultQueryString,
+      timer = options.timer || noopTimer,
+      results = [],
+      specsExecuted = 0,
+      failureCount = 0,
+      pendingSpecCount = 0,
+      htmlReporterMain,
+      symbols,
+      failedSuites = [];
+
+    this.initialize = function() {
+      clearPrior();
+      htmlReporterMain = createDom('div', {className: 'jasmine_html-reporter'},
+        createDom('div', {className: 'banner'},
+          createDom('a', {className: 'title', href: 'http://jasmine.github.io/', target: '_blank'}),
+          createDom('span', {className: 'version'}, j$.version)
+        ),
+        createDom('ul', {className: 'symbol-summary'}),
+        createDom('div', {className: 'alert'}),
+        createDom('div', {className: 'results'},
+          createDom('div', {className: 'failures'})
+        )
+      );
+      getContainer().appendChild(htmlReporterMain);
+
+      symbols = find('.symbol-summary');
+    };
+
+    var totalSpecsDefined;
+    this.jasmineStarted = function(options) {
+      totalSpecsDefined = options.totalSpecsDefined || 0;
+      timer.start();
+    };
+
+    var summary = createDom('div', {className: 'summary'});
+
+    var topResults = new j$.ResultsNode({}, '', null),
+      currentParent = topResults;
+
+    this.suiteStarted = function(result) {
+      currentParent.addChild(result, 'suite');
+      currentParent = currentParent.last();
+    };
+
+    this.suiteDone = function(result) {
+      if (result.status == 'failed') {
+        failedSuites.push(result);
+      }
+
+      if (currentParent == topResults) {
+        return;
+      }
+
+      currentParent = currentParent.parent;
+    };
+
+    this.specStarted = function(result) {
+      currentParent.addChild(result, 'spec');
+    };
+
+    var failures = [];
+    this.specDone = function(result) {
+      if(noExpectations(result) && typeof console !== 'undefined' && typeof console.error !== 'undefined') {
+        console.error('Spec \'' + result.fullName + '\' has no expectations.');
+      }
+
+      if (result.status != 'disabled') {
+        specsExecuted++;
+      }
+
+      symbols.appendChild(createDom('li', {
+          className: noExpectations(result) ? 'empty' : result.status,
+          id: 'spec_' + result.id,
+          title: result.fullName
+        }
+      ));
+
+      if (result.status == 'failed') {
+        failureCount++;
+
+        var failure =
+          createDom('div', {className: 'spec-detail failed'},
+            createDom('div', {className: 'description'},
+              createDom('a', {title: result.fullName, href: specHref(result)}, result.fullName)
+            ),
+            createDom('div', {className: 'messages'})
+          );
+        var messages = failure.childNodes[1];
+
+        for (var i = 0; i < result.failedExpectations.length; i++) {
+          var expectation = result.failedExpectations[i];
+          messages.appendChild(createDom('div', {className: 'result-message'}, expectation.message));
+          messages.appendChild(createDom('div', {className: 'stack-trace'}, expectation.stack));
+        }
+
+        failures.push(failure);
+      }
+
+      if (result.status == 'pending') {
+        pendingSpecCount++;
+      }
+    };
+
+    this.jasmineDone = function() {
+      var banner = find('.banner');
+      var alert = find('.alert');
+      alert.appendChild(createDom('span', {className: 'duration'}, 'finished in ' + timer.elapsed() / 1000 + 's'));
+
+      banner.appendChild(
+        createDom('div', { className: 'run-options' },
+          createDom('span', { className: 'trigger' }, 'Options'),
+          createDom('div', { className: 'payload' },
+            createDom('div', { className: 'exceptions' },
+              createDom('input', {
+                className: 'raise',
+                id: 'raise-exceptions',
+                type: 'checkbox'
+              }),
+              createDom('label', { className: 'label', 'for': 'raise-exceptions' }, 'raise exceptions')),
+            createDom('div', { className: 'throw-failures' },
+              createDom('input', {
+                className: 'throw',
+                id: 'throw-failures',
+                type: 'checkbox'
+              }),
+              createDom('label', { className: 'label', 'for': 'throw-failures' }, 'stop spec on expectation failure'))
+          )
+        ));
+
+      var raiseCheckbox = find('#raise-exceptions');
+
+      raiseCheckbox.checked = !env.catchingExceptions();
+      raiseCheckbox.onclick = onRaiseExceptionsClick;
+
+      var throwCheckbox = find('#throw-failures');
+      throwCheckbox.checked = env.throwingExpectationFailures();
+      throwCheckbox.onclick = onThrowExpectationsClick;
+
+      var optionsMenu = find('.run-options'),
+          optionsTrigger = optionsMenu.querySelector('.trigger'),
+          optionsPayload = optionsMenu.querySelector('.payload'),
+          isOpen = /\bopen\b/;
+
+      optionsTrigger.onclick = function() {
+        if (isOpen.test(optionsPayload.className)) {
+          optionsPayload.className = optionsPayload.className.replace(isOpen, '');
+        } else {
+          optionsPayload.className += ' open';
+        }
+      };
+
+      if (specsExecuted < totalSpecsDefined) {
+        var skippedMessage = 'Ran ' + specsExecuted + ' of ' + totalSpecsDefined + ' specs - run all';
+        alert.appendChild(
+          createDom('span', {className: 'bar skipped'},
+            createDom('a', {href: '?', title: 'Run all specs'}, skippedMessage)
+          )
+        );
+      }
+      var statusBarMessage = '';
+      var statusBarClassName = 'bar ';
+
+      if (totalSpecsDefined > 0) {
+        statusBarMessage += pluralize('spec', specsExecuted) + ', ' + pluralize('failure', failureCount);
+        if (pendingSpecCount) { statusBarMessage += ', ' + pluralize('pending spec', pendingSpecCount); }
+        statusBarClassName += (failureCount > 0) ? 'failed' : 'passed';
+      } else {
+        statusBarClassName += 'skipped';
+        statusBarMessage += 'No specs found';
+      }
+
+      alert.appendChild(createDom('span', {className: statusBarClassName}, statusBarMessage));
+
+      for(i = 0; i < failedSuites.length; i++) {
+        var failedSuite = failedSuites[i];
+        for(var j = 0; j < failedSuite.failedExpectations.length; j++) {
+          var errorBarMessage = 'AfterAll ' + failedSuite.failedExpectations[j].message;
+          var errorBarClassName = 'bar errored';
+          alert.appendChild(createDom('span', {className: errorBarClassName}, errorBarMessage));
+        }
+      }
+
+      var results = find('.results');
+      results.appendChild(summary);
+
+      summaryList(topResults, summary);
+
+      function summaryList(resultsTree, domParent) {
+        var specListNode;
+        for (var i = 0; i < resultsTree.children.length; i++) {
+          var resultNode = resultsTree.children[i];
+          if (resultNode.type == 'suite') {
+            var suiteListNode = createDom('ul', {className: 'suite', id: 'suite-' + resultNode.result.id},
+              createDom('li', {className: 'suite-detail'},
+                createDom('a', {href: specHref(resultNode.result)}, resultNode.result.description)
+              )
+            );
+
+            summaryList(resultNode, suiteListNode);
+            domParent.appendChild(suiteListNode);
+          }
+          if (resultNode.type == 'spec') {
+            if (domParent.getAttribute('class') != 'specs') {
+              specListNode = createDom('ul', {className: 'specs'});
+              domParent.appendChild(specListNode);
+            }
+            var specDescription = resultNode.result.description;
+            if(noExpectations(resultNode.result)) {
+              specDescription = 'SPEC HAS NO EXPECTATIONS ' + specDescription;
+            }
+            if(resultNode.result.status === 'pending' && resultNode.result.pendingReason !== '') {
+              specDescription = specDescription + ' PENDING WITH MESSAGE: ' + resultNode.result.pendingReason;
+            }
+            specListNode.appendChild(
+              createDom('li', {
+                  className: resultNode.result.status,
+                  id: 'spec-' + resultNode.result.id
+                },
+                createDom('a', {href: specHref(resultNode.result)}, specDescription)
+              )
+            );
+          }
+        }
+      }
+
+      if (failures.length) {
+        alert.appendChild(
+          createDom('span', {className: 'menu bar spec-list'},
+            createDom('span', {}, 'Spec List | '),
+            createDom('a', {className: 'failures-menu', href: '#'}, 'Failures')));
+        alert.appendChild(
+          createDom('span', {className: 'menu bar failure-list'},
+            createDom('a', {className: 'spec-list-menu', href: '#'}, 'Spec List'),
+            createDom('span', {}, ' | Failures ')));
+
+        find('.failures-menu').onclick = function() {
+          setMenuModeTo('failure-list');
+        };
+        find('.spec-list-menu').onclick = function() {
+          setMenuModeTo('spec-list');
+        };
+
+        setMenuModeTo('failure-list');
+
+        var failureNode = find('.failures');
+        for (var i = 0; i < failures.length; i++) {
+          failureNode.appendChild(failures[i]);
+        }
+      }
+    };
+
+    return this;
+
+    function find(selector) {
+      return getContainer().querySelector('.jasmine_html-reporter ' + selector);
+    }
+
+    function clearPrior() {
+      // return the reporter
+      var oldReporter = find('');
+
+      if(oldReporter) {
+        getContainer().removeChild(oldReporter);
+      }
+    }
+
+    function createDom(type, attrs, childrenVarArgs) {
+      var el = createElement(type);
+
+      for (var i = 2; i < arguments.length; i++) {
+        var child = arguments[i];
+
+        if (typeof child === 'string') {
+          el.appendChild(createTextNode(child));
+        } else {
+          if (child) {
+            el.appendChild(child);
+          }
+        }
+      }
+
+      for (var attr in attrs) {
+        if (attr == 'className') {
+          el[attr] = attrs[attr];
+        } else {
+          el.setAttribute(attr, attrs[attr]);
+        }
+      }
+
+      return el;
+    }
+
+    function pluralize(singular, count) {
+      var word = (count == 1 ? singular : singular + 's');
+
+      return '' + count + ' ' + word;
+    }
+
+    function specHref(result) {
+      return addToExistingQueryString('spec', result.fullName);
+    }
+
+    function defaultQueryString(key, value) {
+      return '?' + key + '=' + value;
+    }
+
+    function setMenuModeTo(mode) {
+      htmlReporterMain.setAttribute('class', 'jasmine_html-reporter ' + mode);
+    }
+
+    function noExpectations(result) {
+      return (result.failedExpectations.length + result.passedExpectations.length) === 0 &&
+        result.status === 'passed';
+    }
+  }
+
+  return HtmlReporter;
+};
+
+jasmineRequire.HtmlSpecFilter = function() {
+  function HtmlSpecFilter(options) {
+    var filterString = options && options.filterString() && options.filterString().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    var filterPattern = new RegExp(filterString);
+
+    this.matches = function(specName) {
+      return filterPattern.test(specName);
+    };
+  }
+
+  return HtmlSpecFilter;
+};
+
+jasmineRequire.ResultsNode = function() {
+  function ResultsNode(result, type, parent) {
+    this.result = result;
+    this.type = type;
+    this.parent = parent;
+
+    this.children = [];
+
+    this.addChild = function(result, type) {
+      this.children.push(new ResultsNode(result, type, this));
+    };
+
+    this.last = function() {
+      return this.children[this.children.length - 1];
+    };
+  }
+
+  return ResultsNode;
+};
+
+jasmineRequire.QueryString = function() {
+  function QueryString(options) {
+
+    this.navigateWithNewParam = function(key, value) {
+      options.getWindowLocation().search = this.fullStringWithNewParam(key, value);
+    };
+
+    this.fullStringWithNewParam = function(key, value) {
+      var paramMap = queryStringToParamMap();
+      paramMap[key] = value;
+      return toQueryString(paramMap);
+    };
+
+    this.getParam = function(key) {
+      return queryStringToParamMap()[key];
+    };
+
+    return this;
+
+    function toQueryString(paramMap) {
+      var qStrPairs = [];
+      for (var prop in paramMap) {
+        qStrPairs.push(encodeURIComponent(prop) + '=' + encodeURIComponent(paramMap[prop]));
+      }
+      return '?' + qStrPairs.join('&');
+    }
+
+    function queryStringToParamMap() {
+      var paramStr = options.getWindowLocation().search.substring(1),
+        params = [],
+        paramMap = {};
+
+      if (paramStr.length > 0) {
+        params = paramStr.split('&');
+        for (var i = 0; i < params.length; i++) {
+          var p = params[i].split('=');
+          var value = decodeURIComponent(p[1]);
+          if (value === 'true' || value === 'false') {
+            value = JSON.parse(value);
+          }
+          paramMap[decodeURIComponent(p[0])] = value;
+        }
+      }
+
+      return paramMap;
+    }
+
+  }
+
+  return QueryString;
+};
+
+/*
+Copyright (c) 2008-2015 Pivotal Labs
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+/**
+ Starting with version 2.0, this file "boots" Jasmine, performing all of the necessary initialization before executing the loaded environment and all of a project's specs. This file should be loaded after `jasmine.js` and `jasmine_html.js`, but before any project source files or spec files are loaded. Thus this file can also be used to customize Jasmine for a project.
+
+ If a project is using Jasmine via the standalone distribution, this file can be customized directly. If a project is using Jasmine via the [Ruby gem][jasmine-gem], this file can be copied into the support directory via `jasmine copy_boot_js`. Other environments (e.g., Python) will have different mechanisms.
+
+ The location of `boot.js` can be specified and/or overridden in `jasmine.yml`.
+
+ [jasmine-gem]: http://github.com/pivotal/jasmine-gem
+ */
+
+(function() {
+
+  /**
+   * ## Require &amp; Instantiate
+   *
+   * Require Jasmine's core files. Specifically, this requires and attaches all of Jasmine's code to the `jasmine` reference.
+   */
+  window.jasmine = jasmineRequire.core(jasmineRequire);
+
+  /**
+   * Since this is being run in a browser and the results should populate to an HTML page, require the HTML-specific Jasmine code, injecting the same reference.
+   */
+  jasmineRequire.html(jasmine);
+
+  /**
+   * Create the Jasmine environment. This is used to run all specs in a project.
+   */
+  var env = jasmine.getEnv();
+
+  /**
+   * ## The Global Interface
+   *
+   * Build up the functions that will be exposed as the Jasmine public interface. A project can customize, rename or alias any of these functions as desired, provided the implementation remains unchanged.
+   */
+  var jasmineInterface = jasmineRequire.interface(jasmine, env);
+
+  /**
+   * Add all of the Jasmine global/public interface to the global scope, so a project can use the public interface directly. For example, calling `describe` in specs instead of `jasmine.getEnv().describe`.
+   */
+  extend(window, jasmineInterface);
+
+  /**
+   * ## Runner Parameters
+   *
+   * More browser specific code - wrap the query string in an object and to allow for getting/setting parameters from the runner user interface.
+   */
+
+  var queryString = new jasmine.QueryString({
+    getWindowLocation: function() { return window.location; }
+  });
+
+  var catchingExceptions = queryString.getParam("catch");
+  env.catchExceptions(typeof catchingExceptions === "undefined" ? true : catchingExceptions);
+
+  var throwingExpectationFailures = queryString.getParam("throwFailures");
+  env.throwOnExpectationFailure(throwingExpectationFailures);
+
+  /**
+   * ## Reporters
+   * The `HtmlReporter` builds all of the HTML UI for the runner page. This reporter paints the dots, stars, and x's for specs, as well as all spec names and all failures (if any).
+   */
+  var htmlReporter = new jasmine.HtmlReporter({
+    env: env,
+    onRaiseExceptionsClick: function() { queryString.navigateWithNewParam("catch", !env.catchingExceptions()); },
+    onThrowExpectationsClick: function() { queryString.navigateWithNewParam("throwFailures", !env.throwingExpectationFailures()); },
+    addToExistingQueryString: function(key, value) { return queryString.fullStringWithNewParam(key, value); },
+    getContainer: function() { return document.body; },
+    createElement: function() { return document.createElement.apply(document, arguments); },
+    createTextNode: function() { return document.createTextNode.apply(document, arguments); },
+    timer: new jasmine.Timer()
+  });
+
+  /**
+   * The `jsApiReporter` also receives spec results, and is used by any environment that needs to extract the results  from JavaScript.
+   */
+  env.addReporter(jasmineInterface.jsApiReporter);
+  env.addReporter(htmlReporter);
+
+  /**
+   * Filter which specs will be run by matching the start of the full name against the `spec` query param.
+   */
+  var specFilter = new jasmine.HtmlSpecFilter({
+    filterString: function() { return queryString.getParam("spec"); }
+  });
+
+  env.specFilter = function(spec) {
+    return specFilter.matches(spec.getFullName());
+  };
+
+  /**
+   * Setting up timing functions to be able to be overridden. Certain browsers (Safari, IE 8, phantomjs) require this hack.
+   */
+  window.setTimeout = window.setTimeout;
+  window.setInterval = window.setInterval;
+  window.clearTimeout = window.clearTimeout;
+  window.clearInterval = window.clearInterval;
+
+  /**
+   * ## Execution
+   *
+   * Replace the browser window's `onload`, ensure it's called, and then run all of the loaded specs. This includes initializing the `HtmlReporter` instance and then executing the loaded Jasmine environment. All of this will happen after all of the specs are loaded.
+   */
+  var currentWindowOnload = window.onload;
+
+  window.onload = function() {
+    if (currentWindowOnload) {
+      currentWindowOnload();
+    }
+    htmlReporter.initialize();
+    env.execute();
+  };
+
+  /**
+   * Helper function for readability above.
+   */
+  function extend(destination, source) {
+    for (var property in source) destination[property] = source[property];
+    return destination;
+  }
+
+}());
+
+;(function(){
   var link=document.createElement('link');
+  link.setAttribute('data-name','jasmine');
   link.setAttribute('rel','stylesheet');
-  link.setAttribute('href','data:text/css;charset=utf-8;base64,Ym9keXtvdmVyZmxvdy15OnNjcm9sbH0uamFzbWluZV9odG1sLXJlcG9ydGVye2JhY2tncm91bmQtY29sb3I6I2VlZTtwYWRkaW5nOjVweDttYXJnaW46LThweDtmb250LXNpemU6MTFweDtmb250LWZhbWlseTpNb25hY28sIkx1Y2lkYSBDb25zb2xlIixtb25vc3BhY2U7bGluZS1oZWlnaHQ6MTRweDtjb2xvcjojMzMzfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgYXt0ZXh0LWRlY29yYXRpb246bm9uZX0uamFzbWluZV9odG1sLXJlcG9ydGVyIGE6aG92ZXJ7dGV4dC1kZWNvcmF0aW9uOnVuZGVybGluZX0uamFzbWluZV9odG1sLXJlcG9ydGVyIHAsLmphc21pbmVfaHRtbC1yZXBvcnRlciBoMSwuamFzbWluZV9odG1sLXJlcG9ydGVyIGgyLC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgaDMsLmphc21pbmVfaHRtbC1yZXBvcnRlciBoNCwuamFzbWluZV9odG1sLXJlcG9ydGVyIGg1LC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgaDZ7bWFyZ2luOjA7bGluZS1oZWlnaHQ6MTRweH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5iYW5uZXIsLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3ltYm9sLXN1bW1hcnksLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3VtbWFyeSwuamFzbWluZV9odG1sLXJlcG9ydGVyIC5yZXN1bHQtbWVzc2FnZSwuamFzbWluZV9odG1sLXJlcG9ydGVyIC5zcGVjIC5kZXNjcmlwdGlvbiwuamFzbWluZV9odG1sLXJlcG9ydGVyIC5zcGVjLWRldGFpbCAuZGVzY3JpcHRpb24sLmphc21pbmVfaHRtbC1yZXBvcnRlciAuYWxlcnQgLmJhciwuamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdGFjay10cmFjZXtwYWRkaW5nLWxlZnQ6OXB4O3BhZGRpbmctcmlnaHQ6OXB4fS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhbm5lcntwb3NpdGlvbjpyZWxhdGl2ZX0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5iYW5uZXIgLnRpdGxle2JhY2tncm91bmQ6dXJsKCdkYXRhOmltYWdlL3BuZztiYXNlNjQsaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQUZvQUFBQVpDQU1BQUFDR3VzbnlBQUFDZGxCTVZFWC8vLy8vQVArQWdJQ3FWYXFBUUlDWk01bUFWWUNTU1pLQVFJQ09PWTZBVFlDTFJvdUFRSUNKTzRtU1NZQ0lSSWlQUUlDSFBJZU9SNENHUTRhTVFJQ0dQWWFMUm9DRlE0V0tRSUNQUFlXSlJZQ09Rb1NKUUlDTlBvU0lSSUNNUW9TSFFJQ0hSSUNLUW9PSFFJQ0tQb09KTzRPSlFZT01RSUNNUTRDSVFZS0xRSUNJUG9LTFE0Q0tRSUNOUG9LSlFJU01RNEtKUW9TTFFZS0pRSVNMUTRLSVFvU0tRWUtJUUlDSVFJU01Rb1NLUVlLTFFJT0xRb09KUVlHTFFJT0tRSU9NUW9HS1FZT0xRWUdLUUlPTFFvR0pRWU9KUUlPS1FZR0pRSU9LUW9HS1FJR0xRSUtMUTRLS1FvR0xRWUtKUUlHS1FZS0pRSUdLUUlLSlFvR0tRWUtMUUlHS1FZS0xRSU9KUW9LS1FvT0pRWUtLUUlPSlFvS0tRb09LUUlPTFFvS0tRWU9MUVlLSlFJT0tRb0tLUVlLS1FvS0pRWU9LUVlLTFFJT0tRb0tMUVlPS1FZS0xRSU9KUW9HS1FZS0pRWUdKUW9HS1FZS0xRb0dMUVlHS1FvR0pRWUtLUVlHSlFJS0tRb0dKUVlLTFFJS0tRWUdMUVlLS1FZR0tRWUdLUVlLSlFZT0tRb0tKUVlPS1FZS0xRWU9MUVlPS1FZS0xRWU9LUW9LS1FZS0tRWU9LUVlPSlFZS0tRWUtMUVlLS1FJS0tRb0tLUVlLS1FZS0tRb0tKUUlLS1FZS0xRWUtLUVlLS1FJS0tRWUtLUVlLS1FZS0tRSUtLUVlLSlFZR0xRWUdLUVlLS1FZS0tRWUdLUUlLS1FZR0tRWU9KUW9LS1FZT0xRWUtLUVlPS1FvS0tRWUtLUW9LS1FZS0tRWUtKUVlLTFFZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLSlFZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLTFFZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS21JRHBFQUFBQTBYUlNUbE1BQVFJREJBVUdCd2dKQ2dzTURRNFBFQkVTRXhRVkZoY1lHUm9iSEIwZUh5QWlJeVFsSnljb0tpc3NMUzR3TVRRMU5qYzRPVG83UER3K1AwQkNRMFJJU1VwTFRFMU9VRk5VVlZkWVdGbGFXMTVmWUdGaVkyWm5hR2xxYTJ4dGIzQnhjbk4wZG5oNWVudDhmWDUvZ0lHQ2hJV0lpb3lOam8rUWtaT1VsWmFZbVpxYm5KMmVvS0dpbzZXbXFLbXNyYTZ2c0xHenRyZTR1YnE3dkwyK3dNSER4TWpKeXN2TnpzL1EwZExVMXRmWTJkdmMzdC9nNGVMajVlYm42T25xNit6dDd1L3c4dlAwOWZiMytQbjYrL3o5L3ZrVlFYQUFBQU1hU1VSQlZIaGU1ZFh4VjFOMUdNZnh6MkFCYkRnSUFtNVZESk95VkRJSkxVTWFWcEJXVVpVYUdibXFvR3BaUlNpR2lSV3A2S29aNUFCMFpZNTBSSW1aUUlsYWhLa01ZWHYvUjkwZEJ2RVQvckpmT3IzT3VjOHY5OXpQZWM1OXp2ZjU2ait2WUtsVmlTZjcyNTBYNE1yM08yOVRncTA4QmRHQjREaGNla0VKNVlrUUtGc2dXWmR0ajlKcFYrSTh4UGpMRnFrcnNFSXFPOFBIU3BpczM2aldhemNxakVzZkpqa3ZSc3NWVTM3U2RJT3U0WENmNXZFSlBzbndKcG5STlU5Sm14aE1rOGwxZ2VoSXJxN2hURmp6T0QrVmY4ODYyOXFLTUpWTmx0SW5GZVJleFJReUpsTmVxZDFpR0RsU3pySVVJeVhieUZmbTNSWXByY1FSZTdscXRXeUdZYmZjNmRUMFIydm1kT09rWDN1NTVDMXJQMzdmdGlIK3REYnk0ci9SQlQwdzhUeUVrcitlcEI5WGdQRG1TWVlXYnJoQ3VGWWFJeXczZkRRQVhUblNraCtBTm9maUhtV2Y5bCtGWTFJOTBGZFFUZXRzdE8wMG8yM25vdnpWc0o3dUIzL0M1VGtialJ3WjVKZXJ3VjRpUldxOUhGYkZNYUsvZDBUWXFheVJpUVB1SXh4UzNCdThKV1U5MC82MHRLaTd2a2hhem5lejBhL1RiVk9LajVDYU9aaDZmV0c2L0x5djlCL1pMUjFndy9TL2ZwYmVWRDNNQ1cxbGk2U3ZXRE9uNjV0cjk5L3V2V3RCUzBYRG00czF0K3NPSHBHMGtwQkt4L2w3N3dPU254THBjeDZUWG1YTFRQUU9LWU9mOVExZGZyOC9TSjJtRmRDdmwxWWw5M0RpSFVadlhlTEpiR1N6WXU1Z1ZKMnNsYlNha09SOGR4Q3E1YWRRMm9GTHFzRTlFeDNMNHFRTzBlT1BlVTV4NTZieXBYcDRvblNFYjVPa0lDWDZsRGF0NTVUZW96dE5LUWNKYWFrcno5S0NiOTVvRDY5SUtxK3lLVzRYUGprbmFTNTJWMFRacUUyY1R0WGpjSFNDUm1VTzg4ZSs4NWhqM0VQNzRpOXA4cHlsdzdseGdNRHl5bDZPVjdaZWpuak5NZmF0dTg3THhSYkgwSVMzNWd0MmE0WmptR3BWQmRLSzNXcjZJTms4aldXU0dxYkE1NUNLZ2pCUkM2RTl3Nzh5ZFRnM0FCUzNBRlYxUU4wWTRBYTJwZ0VqV25RVVJqOUwwYXlLNlIyeXNFcXhIVUt6WW5MdnZ5VStpOUtNMkpISnpFNHZ5Wk95RGNPd09zeVNhamVMUGM4c052UEprRmx5SmQyMHdwcUF6WmVBZlozb1d5YnhkK1AvM2orU0czdVNCZGYyVlFBQUFBQkpSVTVFcmtKZ2dnPT0nKSBuby1yZXBlYXQ7YmFja2dyb3VuZDp1cmwoJ2RhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEQ5NGJXd2dkbVZ5YzJsdmJqMGlNUzR3SWlCbGJtTnZaR2x1WnowaVZWUkdMVGdpSUhOMFlXNWtZV3h2Ym1VOUltNXZJajgrQ2p3aExTMGdRM0psWVhSbFpDQjNhWFJvSUVsdWEzTmpZWEJsSUNob2RIUndPaTh2ZDNkM0xtbHVhM05qWVhCbExtOXlaeThwSUMwdFBnb0tQSE4yWndvZ0lDQjRiV3h1Y3pwa1l6MGlhSFIwY0RvdkwzQjFjbXd1YjNKbkwyUmpMMlZzWlcxbGJuUnpMekV1TVM4aUNpQWdJSGh0Ykc1ek9tTmpQU0pvZEhSd09pOHZZM0psWVhScGRtVmpiMjF0YjI1ekxtOXlaeTl1Y3lNaUNpQWdJSGh0Ykc1ek9uSmtaajBpYUhSMGNEb3ZMM2QzZHk1M015NXZjbWN2TVRrNU9TOHdNaTh5TWkxeVpHWXRjM2x1ZEdGNExXNXpJeUlLSUNBZ2VHMXNibk02YzNablBTSm9kSFJ3T2k4dmQzZDNMbmN6TG05eVp5OHlNREF3TDNOMlp5SUtJQ0FnZUcxc2JuTTlJbWgwZEhBNkx5OTNkM2N1ZHpNdWIzSm5Mekl3TURBdmMzWm5JZ29nSUNCNGJXeHVjenBwYm10elkyRndaVDBpYUhSMGNEb3ZMM2QzZHk1cGJtdHpZMkZ3WlM1dmNtY3ZibUZ0WlhOd1lXTmxjeTlwYm10elkyRndaU0lLSUNBZ2RtVnljMmx2YmowaU1TNHhJZ29nSUNCM2FXUjBhRDBpTmpneExqazJNalV5SWdvZ0lDQm9aV2xuYUhROUlqRTROeTQxSWdvZ0lDQnBaRDBpYzNabk1pSUtJQ0FnZUcxc09uTndZV05sUFNKd2NtVnpaWEoyWlNJK1BHMWxkR0ZrWVhSaENpQWdJQ0FnYVdROUltMWxkR0ZrWVhSaE9DSStQSEprWmpwU1JFWStQR05qT2xkdmNtc0tJQ0FnSUNBZ0lDQWdjbVJtT21GaWIzVjBQU0lpUGp4a1l6cG1iM0p0WVhRK2FXMWhaMlV2YzNabkszaHRiRHd2WkdNNlptOXliV0YwUGp4a1l6cDBlWEJsQ2lBZ0lDQWdJQ0FnSUNBZ2NtUm1PbkpsYzI5MWNtTmxQU0pvZEhSd09pOHZjSFZ5YkM1dmNtY3ZaR012WkdOdGFYUjVjR1V2VTNScGJHeEpiV0ZuWlNJZ0x6NDhMMk5qT2xkdmNtcytQQzl5WkdZNlVrUkdQand2YldWMFlXUmhkR0UrUEdSbFpuTUtJQ0FnSUNCcFpEMGlaR1ZtY3pZaVBqeGpiR2x3VUdGMGFBb2dJQ0FnSUNBZ2FXUTlJbU5zYVhCUVlYUm9NVGdpUGp4d1lYUm9DaUFnSUNBZ0lDQWdJR1E5SWswZ01Dd3hOVEF3SURBc01DQnNJRFUwTlRVdU56UXNNQ0F3TERFMU1EQWdUQ0F3TERFMU1EQWdlaUlLSUNBZ0lDQWdJQ0FnYVc1cmMyTmhjR1U2WTI5dWJtVmpkRzl5TFdOMWNuWmhkSFZ5WlQwaU1DSUtJQ0FnSUNBZ0lDQWdhV1E5SW5CaGRHZ3lNQ0lnTHo0OEwyTnNhWEJRWVhSb1Bqd3ZaR1ZtY3o0OFp3b2dJQ0FnSUhSeVlXNXpabTl5YlQwaWJXRjBjbWw0S0RFdU1qVXNNQ3d3TEMweExqSTFMREFzTVRnM0xqVXBJZ29nSUNBZ0lHbGtQU0puTVRBaVBqeG5DaUFnSUNBZ0lDQjBjbUZ1YzJadmNtMDlJbk5qWVd4bEtEQXVNU3d3TGpFcElnb2dJQ0FnSUNBZ2FXUTlJbWN4TWlJK1BHY0tJQ0FnSUNBZ0lDQWdhV1E5SW1jeE5DSStQR2NLSUNBZ0lDQWdJQ0FnSUNCamJHbHdMWEJoZEdnOUluVnliQ2dqWTJ4cGNGQmhkR2d4T0NraUNpQWdJQ0FnSUNBZ0lDQWdhV1E5SW1jeE5pSStQSEJoZEdnS0lDQWdJQ0FnSUNBZ0lDQWdJR1E5SW0wZ01UVTBOQ3cxT1RrdU5ETTBJR01nTUM0NU1pd3ROREF1TXpVeUlESTFMalk0TEMwNE1TNDJNRElnTnpFdU5UTXNMVGd4TGpZd01pQXlOeTQxTVN3d0lEUTNMalk0TERFeUxqZ3pNaUEyTVM0ME5Dd3pOUzQzTlRRZ01USXVPRE1zTWpJdU9UTWdNVEl1T0RNc05UWXVPRFV5SURFeUxqZ3pMRGd5TGpVeU55QnNJREFzTXpJNUxqRTROQ0F0TnpFdU5USXNNQ0F3TERFd05DNDFORE1nTWpZMkxqZ3pMREFnTUN3dE1UQTBMalUwTXlBdE56QXVOaXd3SURBc0xUTTBOQzQzTnlCaklEQXNMVFU0TGpZNU1TQXRNeTQyT0N3dE1UQTBMalV6TVNBdE5EUXVPVE1zTFRFMU1pNHlNVGdnTFRNMkxqWTRMQzAwTWk0eE9DQXRPVFl1TWpnc0xUWTJMakF5SUMweE5UTXVNVFFzTFRZMkxqQXlJQzB4TVRjdU16Y3NNQ0F0TWpBM0xqSTBMRGMzTGprME1TQXRNakF5TGpZMExERTVOeTR4TkRVZ2JDQXhNekF1TWl3d0lnb2dJQ0FnSUNBZ0lDQWdJQ0FnYVc1cmMyTmhjR1U2WTI5dWJtVmpkRzl5TFdOMWNuWmhkSFZ5WlQwaU1DSUtJQ0FnSUNBZ0lDQWdJQ0FnSUdsa1BTSndZWFJvTWpJaUNpQWdJQ0FnSUNBZ0lDQWdJQ0J6ZEhsc1pUMGlabWxzYkRvak9HRTBNVGd5TzJacGJHd3RiM0JoWTJsMGVUb3hPMlpwYkd3dGNuVnNaVHB1YjI1NlpYSnZPM04wY205clpUcHViMjVsSWlBdlBqeHdZWFJvQ2lBZ0lDQWdJQ0FnSUNBZ0lDQmtQU0p0SURJek1ERXVOQ3cyTmpJdU5qazFJR01nTUN3NE1DNDNNRE1nTFRZMkxqazBMREUwTlM0NE1UTWdMVEUwTnk0Mk15d3hORFV1T0RFeklDMDRNeTQwTkN3d0lDMHhORGN1TmpNc0xUWTRMamM0TVNBdE1UUTNMall6TEMweE5URXVNekF4SURBc0xUYzVMamM0TlNBMk5pNDVOQ3d0TVRRMUxqZ3dNU0F4TkRVdU9Dd3RNVFExTGpnd01TQTROQzR6TlN3d0lERTBPUzQwTml3Mk55NDROVElnTVRRNUxqUTJMREUxTVM0eU9Ea2dlaUJ0SUMweExqZ3pMQzB4T0RFdU5UUTNJR01nTFRNMUxqYzNMQzAxTkM0d09UY2dMVGt6TGpVekxDMDNPQzQ0TlRrZ0xURTFOeTQzTWl3dE56Z3VPRFU1SUMweE5EQXVNeXd3SUMweU5URXVNalFzTVRFMkxqUTBPU0F0TWpVeExqSTBMREkxTkM0NU1UZ2dNQ3d4TkRJdU1USTVJREV4TXk0M0xESTJNQzQwTVNBeU5UWXVOelFzTWpZd0xqUXhJRFl6TGpJM0xEQWdNVEU0TGpJNUxDMHlPUzR6TXpZZ01UVXlMakl5TEMwNE1pNDFNak1nYkNBd0xEWTVMalk0TnlBeE56VXVNVFFzTUNBd0xDMHhNRFF1TlRJM0lDMDJNUzQwTkN3d0lEQXNMVEk0TUM0MU9UZ2dOakV1TkRRc01DQXdMQzB4TURRdU5USTNJQzB4TnpVdU1UUXNNQ0F3TERZMkxqQXhPU0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbHVhM05qWVhCbE9tTnZibTVsWTNSdmNpMWpkWEoyWVhSMWNtVTlJakFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnBaRDBpY0dGMGFESTBJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2MzUjViR1U5SW1acGJHdzZJemhoTkRFNE1qdG1hV3hzTFc5d1lXTnBkSGs2TVR0bWFXeHNMWEoxYkdVNmJtOXVlbVZ5Ynp0emRISnZhMlU2Ym05dVpTSWdMejQ4Y0dGMGFBb2dJQ0FnSUNBZ0lDQWdJQ0FnWkQwaWJTQXlOakl5TGpNekxEVTFOeTR5TlRnZ1l5QXpMalkzTEMwME5DNHdNVFlnTXpNdU1ERXNMVGN6TGpNME9DQTNPQzQ0Tml3dE56TXVNelE0SURNekxqa3pMREFnTmpZdU9UTXNNak11T0RJMElEWTJMamt6TERZd0xqVXdOQ0F3TERRNExqWXdOaUF0TkRVdU9EUXNOVFl1T0RVMklDMDRNeTQwTkN3Mk5pNDVOREVnTFRnMUxqSTRMREl5TGpBd05DQXRNVGM0TGpneExEUTRMall3TmlBdE1UYzRMamd4TERFMU5TNDROemtnTUN3NU15NDFNellnTnpndU9EWXNNVFEzTGpZek15QXhOalV1T1Rnc01UUTNMall6TXlBME5Dd3dJRGd6TGpRekxDMDVMakUzTmlBeE1UQXVPVFFzTFRRMExqQXdPQ0JzSURBc016TXVPVEl5SURneUxqVXpMREFnTUN3dE1UTXlMamsyTlNBdE1UQTRMakl4TERBZ1l5QXRNUzQ0TXl3ek5DNDROVFlnTFRJNExqUXlMRFUzTGpjM05DQXROak11TWpZc05UY3VOemMwSUMwek1DNHlOaXd3SUMwMk1pNHpOU3d0TVRjdU5ESXlJQzAyTWk0ek5Td3ROVEV1TXpRNElEQXNMVFExTGpnME55QTBOQzQ1TXl3dE5UVXVPVE1nT0RBdU5qa3NMVFkwTGpFNElEZzRMakF5TEMweU1DNHhOelVnTVRneUxqUTNMQzAwTnk0Mk9UVWdNVGd5TGpRM0xDMHhOVGN1TnpNMElEQXNMVGs1TGpBeU55QXRPRE11TkRRc0xURTFOQzR3TXprZ0xURTNOUzR4TXl3dE1UVTBMakF6T1NBdE5Ea3VOVE1zTUNBdE9UUXVORFlzTVRVdU5UZ3lJQzB4TWpZdU5UVXNOVE11TVRnZ2JDQXdMQzAwTUM0ek5DQXRPRFV1TWpjc01DQXdMREUwTWk0eE1qa2dNVEUwTGpZeUxEQWlDaUFnSUNBZ0lDQWdJQ0FnSUNCcGJtdHpZMkZ3WlRwamIyNXVaV04wYjNJdFkzVnlkbUYwZFhKbFBTSXdJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2FXUTlJbkJoZEdneU5pSUtJQ0FnSUNBZ0lDQWdJQ0FnSUhOMGVXeGxQU0ptYVd4c09pTTRZVFF4T0RJN1ptbHNiQzF2Y0dGamFYUjVPakU3Wm1sc2JDMXlkV3hsT201dmJucGxjbTg3YzNSeWIydGxPbTV2Ym1VaUlDOCtQSEJoZEdnS0lDQWdJQ0FnSUNBZ0lDQWdJR1E5SW0wZ01qazRPQzR4T0N3NE1EQXVNalUwSUMwMk15NHlOaXd3SURBc01UQTBMalV5TnlBeE5qVXVNRFVzTUNBd0xDMDNNeTR6TlRVZ1l5QXpNUzR4T0N3MU1TNHpORGNnTnpndU9EWXNPRFV1TWpjM0lERTBNUzR5TVN3NE5TNHlOemNnTmpjdU9EVXNNQ0F4TWpRdU56RXNMVFF4TGpJMU9DQXhOVEl1TWpFc0xURXdNaTQyT1RrZ01qWXVOaXcyTWk0ek5URWdPVEl1TmpJc01UQXlMalk1T1NBeE5qQXVORGNzTVRBeUxqWTVPU0ExTXk0eE9Td3dJREV3TlM0ME5pd3RNaklnTVRReExqSXhMQzAyTWk0ek5URWdNemd1TlRJc0xUUTBMamt6T0NBek9DNDFNaXd0T1RNdU5UTXlJRE00TGpVeUxDMHhORGt1TkRVM0lHd2dNQ3d0TVRnMUxqSXpPU0EyTXk0eU55d3dJREFzTFRFd05DNDFNamNnTFRJek9DNDBNaXd3SURBc01UQTBMalV5TnlBMk15NHlPQ3d3SURBc01UVTNMamN4TlNCaklEQXNNekl1TVRBeUlEQXNOakF1TlRJM0lDMHhOQzQyTnl3NE9DNDVOVGNnTFRFNExqTTBMREkyTGpVNE1pQXRORGd1TmpFc05EQXVNelEwSUMwM09TNDNOeXcwTUM0ek5EUWdMVE13TGpJMkxEQWdMVFl6TGpJNExDMHhNaTQ0TkRRZ0xUZ3lMalV6TEMwek5pNDJOeklnTFRJeUxqa3pMQzB5T1M0ek5UVWdMVEl5TGprekxDMDFOaTQ0TmpNZ0xUSXlMamt6TEMwNU1pNDJNamtnYkNBd0xDMHhOVGN1TnpFMUlEWXpMakkzTERBZ01Dd3RNVEEwTGpVeU55QXRNak00TGpReExEQWdNQ3d4TURRdU5USTNJRFl6TGpJNExEQWdNQ3d4TlRBdU16Z3pJR01nTUN3eU9TNHpORGdnTUN3Mk5pNHdNak1nTFRFMExqWTNMRGt4TGpZNU9TQXRNVFV1TlRrc01qa3VNek0ySUMwME55NDJPU3cwTkM0NU16UWdMVGd3TGpjc05EUXVPVE0wSUMwek1TNHhPQ3d3SUMwMU55NDNOeXd0TVRFdU1EQTRJQzAzTnk0NU5Dd3RNelV1TnpjMElDMHlOQzQzTnl3dE16QXVNalV6SUMweU5pNDJMQzAyTWk0ek5ETWdMVEkyTGpZc0xUazVMamswTVNCc0lEQXNMVEUxTVM0ek1ERWdOak11TWpjc01DQXdMQzB4TURRdU5USTNJQzB5TXpndU5Dd3dJREFzTVRBMExqVXlOeUEyTXk0eU5pd3dJREFzTWpnd0xqVTVPQ0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbHVhM05qWVhCbE9tTnZibTVsWTNSdmNpMWpkWEoyWVhSMWNtVTlJakFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnBaRDBpY0dGMGFESTRJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2MzUjViR1U5SW1acGJHdzZJemhoTkRFNE1qdG1hV3hzTFc5d1lXTnBkSGs2TVR0bWFXeHNMWEoxYkdVNmJtOXVlbVZ5Ynp0emRISnZhMlU2Ym05dVpTSWdMejQ4Y0dGMGFBb2dJQ0FnSUNBZ0lDQWdJQ0FnWkQwaWJTQXpPVGs0TGpZMkxEazFNUzQxTkRjZ0xURXhNUzQ0Tnl3d0lEQXNNVEU0TGpJNU15QXhNVEV1T0Rjc01DQXdMQzB4TVRndU1qa3pJSG9nYlNBd0xDMDBNekV1T0RreElEWXpMakkzTERBZ01Dd3RNVEEwTGpVeU55QXRNak01TGpNekxEQWdNQ3d4TURRdU5USTNJRFkwTGpFNUxEQWdNQ3d5T0RBdU5UazRJQzAyTXk0eU55d3dJREFzTVRBMExqVXlOeUF4TnpVdU1UUXNNQ0F3TEMwek9EVXVNVEkxSWdvZ0lDQWdJQ0FnSUNBZ0lDQWdhVzVyYzJOaGNHVTZZMjl1Ym1WamRHOXlMV04xY25aaGRIVnlaVDBpTUNJS0lDQWdJQ0FnSUNBZ0lDQWdJR2xrUFNKd1lYUm9NekFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnpkSGxzWlQwaVptbHNiRG9qT0dFME1UZ3lPMlpwYkd3dGIzQmhZMmwwZVRveE8yWnBiR3d0Y25Wc1pUcHViMjU2WlhKdk8zTjBjbTlyWlRwdWIyNWxJaUF2UGp4d1lYUm9DaUFnSUNBZ0lDQWdJQ0FnSUNCa1BTSnRJRFF4TlRrdU1USXNPREF3TGpJMU5DQXROak11TWpjc01DQXdMREV3TkM0MU1qY2dNVGMxTGpFMExEQWdNQ3d0TmprdU5qZzNJR01nTWprdU16VXNOVFF1TVRBeElEZzBMak0yTERnd0xqWTVPU0F4TkRRdU9EY3NPREF1TmprNUlEVXpMakU1TERBZ01UQTFMalExTEMweU1pNHdNVFlnTVRReExqSXlMQzAyTUM0MU1qY2dOREF1TXpRc0xUUTBMamt6TkNBME1TNHlOaXd0T0RndU1ETXlJRFF4TGpJMkxDMHhORE11T1RVM0lHd2dNQ3d0TVRreExqWTFNeUEyTXk0eU55d3dJREFzTFRFd05DNDFNamNnTFRJek9DNDBMREFnTUN3eE1EUXVOVEkzSURZekxqSTJMREFnTUN3eE5UZ3VOak0zSUdNZ01Dd3pNQzR5TmpJZ01DdzJNUzQwTXpRZ0xURTVMakkyTERnNExqQXpOU0F0TWpBdU1UY3NNall1TlRneUlDMDFNeTR4T0N3ek9TNDBNVFFnTFRnMkxqRTVMRE01TGpReE5DQXRNek11T1RNc01DQXROamd1Tnpjc0xURXpMamMxSUMwNE9DNDVOQ3d0TkRFdU1qVWdMVEl4TGpBNUxDMHlOeTQxSUMweU1TNHdPU3d0TmprdU5qZzNJQzB5TVM0d09Td3RNVEF5TGpjd055QnNJREFzTFRFME1pNHhNamtnTmpNdU1qWXNNQ0F3TEMweE1EUXVOVEkzSUMweU16Z3VOQ3d3SURBc01UQTBMalV5TnlBMk15NHlOeXd3SURBc01qZ3dMalU1T0NJS0lDQWdJQ0FnSUNBZ0lDQWdJR2x1YTNOallYQmxPbU52Ym01bFkzUnZjaTFqZFhKMllYUjFjbVU5SWpBaUNpQWdJQ0FnSUNBZ0lDQWdJQ0JwWkQwaWNHRjBhRE15SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdjM1I1YkdVOUltWnBiR3c2SXpoaE5ERTRNanRtYVd4c0xXOXdZV05wZEhrNk1UdG1hV3hzTFhKMWJHVTZibTl1ZW1WeWJ6dHpkSEp2YTJVNmJtOXVaU0lnTHo0OGNHRjBhQW9nSUNBZ0lDQWdJQ0FnSUNBZ1pEMGliU0ExTURneUxqUTRMRGN3TXk0NU5qVWdZeUF0TVRrdU1qUXNOekF1TmpBMUlDMDRNUzQyTERFeE5TNDFORGNnTFRFMU5DNHdOQ3d4TVRVdU5UUTNJQzAyTmk0d05Dd3dJQzB4TWprdU15d3ROVEV1TXpRNElDMHhORE11TURVc0xURXhOUzQxTkRjZ2JDQXlPVGN1TURrc01DQjZJRzBnT0RVdU1qY3NMVEUwTkM0NE9ETWdZeUF0TXpndU5URXNMVGt6TGpVeU15QXRNVEk1TGpJM0xDMHhOVFl1TnpreklDMHlNekV1TURVc0xURTFOaTQzT1RNZ0xURTBNeTR3Tnl3d0lDMHlOVGN1Tmpnc01URXhMamczTVNBdE1qVTNMalk0TERJMU5TNDRNellnTUN3eE5EUXVPRGd6SURFd09TNHhNaXd5TmpFdU16STRJREkxTkM0NU1Td3lOakV1TXpJNElEWTNMamczTERBZ01UTTFMamN5TEMwek1DNHlOVGdnTVRnekxqTTVMQzAzT0M0NE5qTWdORGd1TmpJc0xUVXhMak0wTkNBMk9DNDNPU3d0TVRFekxqWTVOU0EyT0M0M09Td3RNVGd6TGpNNE15QnNJQzB6TGpZM0xDMHpPUzQwTXpRZ0xUTTVOaTR4TXl3d0lHTWdNVFF1Tmpjc0xUWTNMamcyTXlBM055NHdNeXd0TVRFM0xqTTJNeUF4TkRZdU56SXNMVEV4Tnk0ek5qTWdORGd1TlRrc01DQTVNQzQzTml3eE9DNHpNamdnTVRFNExqSTRMRFU0TGpZM01pQnNJREV4Tmk0ME5Dd3dJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2FXNXJjMk5oY0dVNlkyOXVibVZqZEc5eUxXTjFjblpoZEhWeVpUMGlNQ0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbGtQU0p3WVhSb016UWlDaUFnSUNBZ0lDQWdJQ0FnSUNCemRIbHNaVDBpWm1sc2JEb2pPR0UwTVRneU8yWnBiR3d0YjNCaFkybDBlVG94TzJacGJHd3RjblZzWlRwdWIyNTZaWEp2TzNOMGNtOXJaVHB1YjI1bElpQXZQanh3WVhSb0NpQWdJQ0FnSUNBZ0lDQWdJQ0JrUFNKdElEWTVNQzQ0T1RVc09EVXdMamN3TXlBNU1DNDNOU3d3SURJeUxqVTBNeXd6TVM0d016VWdNQ3d5TkRNdU1USXlJQzB4TXpVdU9ESTVMREFnTUN3dE1qUXpMakUwTVNBeU1pNDFNellzTFRNeExqQXhOaUlLSUNBZ0lDQWdJQ0FnSUNBZ0lHbHVhM05qWVhCbE9tTnZibTVsWTNSdmNpMWpkWEoyWVhSMWNtVTlJakFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnBaRDBpY0dGMGFETTJJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2MzUjViR1U5SW1acGJHdzZJemhoTkRFNE1qdG1hV3hzTFc5d1lXTnBkSGs2TVR0bWFXeHNMWEoxYkdVNmJtOXVlbVZ5Ynp0emRISnZhMlU2Ym05dVpTSWdMejQ4Y0dGMGFBb2dJQ0FnSUNBZ0lDQWdJQ0FnWkQwaWJTQTJNekl1TXprMUxEYzBNaTR5TlRnZ01qZ3VNRE01TERnMkxqTXdOQ0F0TWpJdU5UVXhMRE14TGpBMElDMHlNekV1TWpJekxEYzFMakV5T0NBdE5ERXVPVGMyTEMweE1qa3VNVGd6SURJek1TNHlOVGNzTFRjMUxqRXpOeUF6Tmk0ME5UUXNNVEV1T0RRNElnb2dJQ0FnSUNBZ0lDQWdJQ0FnYVc1cmMyTmhjR1U2WTI5dWJtVmpkRzl5TFdOMWNuWmhkSFZ5WlQwaU1DSUtJQ0FnSUNBZ0lDQWdJQ0FnSUdsa1BTSndZWFJvTXpnaUNpQWdJQ0FnSUNBZ0lDQWdJQ0J6ZEhsc1pUMGlabWxzYkRvak9HRTBNVGd5TzJacGJHd3RiM0JoWTJsMGVUb3hPMlpwYkd3dGNuVnNaVHB1YjI1NlpYSnZPM04wY205clpUcHViMjVsSWlBdlBqeHdZWFJvQ2lBZ0lDQWdJQ0FnSUNBZ0lDQmtQU0p0SURjeE55NDBORGtzTmpVekxqRXdOU0F0TnpNdU5ERXNOVE11TXpZZ0xUTTJMalE0T0N3dE1URXVPRGMxSUMweE5ESXVPVEF6TEMweE9UWXVOamt5SURFd09TNDRPRE1zTFRjNUxqZ3lPQ0F4TkRJdU9URTRMREU1Tmk0M01ETWdNQ3d6T0M0ek16SWlDaUFnSUNBZ0lDQWdJQ0FnSUNCcGJtdHpZMkZ3WlRwamIyNXVaV04wYjNJdFkzVnlkbUYwZFhKbFBTSXdJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2FXUTlJbkJoZEdnME1DSUtJQ0FnSUNBZ0lDQWdJQ0FnSUhOMGVXeGxQU0ptYVd4c09pTTRZVFF4T0RJN1ptbHNiQzF2Y0dGamFYUjVPakU3Wm1sc2JDMXlkV3hsT201dmJucGxjbTg3YzNSeWIydGxPbTV2Ym1VaUlDOCtQSEJoZEdnS0lDQWdJQ0FnSUNBZ0lDQWdJR1E5SW0wZ09ESTRMalV5TERjd05pNDBOalVnTFRjekxqUXlOaXd0TlRNdU16UWdNQzR3TVRFc0xUTTRMak0xT1NCTUlEZzVPQzR3TURRc05ERTRMakEzSURFd01EY3VPU3cwT1RjdU9EazRJRGcyTkM0NU56TXNOamswTGpZd09TQTRNamd1TlRJc056QTJMalEyTlNJS0lDQWdJQ0FnSUNBZ0lDQWdJR2x1YTNOallYQmxPbU52Ym01bFkzUnZjaTFqZFhKMllYUjFjbVU5SWpBaUNpQWdJQ0FnSUNBZ0lDQWdJQ0JwWkQwaWNHRjBhRFF5SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdjM1I1YkdVOUltWnBiR3c2SXpoaE5ERTRNanRtYVd4c0xXOXdZV05wZEhrNk1UdG1hV3hzTFhKMWJHVTZibTl1ZW1WeWJ6dHpkSEp2YTJVNmJtOXVaU0lnTHo0OGNHRjBhQW9nSUNBZ0lDQWdJQ0FnSUNBZ1pEMGliU0E0TVRJdU1EZzJMRGd5T0M0MU9EWWdNamd1TURVMUxDMDROaTR6TWlBek5pNDBPRFFzTFRFeExqZ3pOaUF5TXpFdU1qSTFMRGMxTGpFeE55QXROREV1T1Rjc01USTVMakU0TXlBdE1qTXhMakl6T1N3dE56VXVNVFFnTFRJeUxqVTFOU3d0TXpFdU1EQTBJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2FXNXJjMk5oY0dVNlkyOXVibVZqZEc5eUxXTjFjblpoZEhWeVpUMGlNQ0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbGtQU0p3WVhSb05EUWlDaUFnSUNBZ0lDQWdJQ0FnSUNCemRIbHNaVDBpWm1sc2JEb2pPR0UwTVRneU8yWnBiR3d0YjNCaFkybDBlVG94TzJacGJHd3RjblZzWlRwdWIyNTZaWEp2TzNOMGNtOXJaVHB1YjI1bElpQXZQanh3WVhSb0NpQWdJQ0FnSUNBZ0lDQWdJQ0JrUFNKdElEY3pOaTR6TURFc01UTXpOUzQ0T0NCaklDMHpNak11TURRM0xEQWdMVFU0TlM0NE56VXNMVEkyTWk0M09DQXROVGcxTGpnM05Td3ROVGcxTGpjNE1pQXdMQzB6TWpNdU1URTRJREkyTWk0NE1qZ3NMVFU0TlM0NU56Y2dOVGcxTGpnM05Td3ROVGcxTGprM055QXpNak11TURFNUxEQWdOVGcxTGpnd09Td3lOakl1T0RVNUlEVTROUzQ0TURrc05UZzFMamszTnlBd0xETXlNeTR3TURJZ0xUSTJNaTQzT1N3MU9EVXVOemd5SUMwMU9EVXVPREE1TERVNE5TNDNPRElnYkNBd0xEQWdlaUJ0SURBc0xURXhPQzQyTVNCaklESTFOeTQ1TnpJc01DQTBOamN1TVRnNUxDMHlNRGt1TVRNZ05EWTNMakU0T1N3dE5EWTNMakUzTWlBd0xDMHlOVGd1TVRJNUlDMHlNRGt1TWpFM0xDMDBOamN1TXpRNElDMDBOamN1TVRnNUxDMDBOamN1TXpRNElDMHlOVGd1TURjMExEQWdMVFEyTnk0eU5UUXNNakE1TGpJeE9TQXRORFkzTGpJMU5DdzBOamN1TXpRNElEQXNNalU0TGpBME1pQXlNRGt1TVRnc05EWTNMakUzTWlBME5qY3VNalUwTERRMk55NHhOeklpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnBibXR6WTJGd1pUcGpiMjV1WldOMGIzSXRZM1Z5ZG1GMGRYSmxQU0l3SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdhV1E5SW5CaGRHZzBOaUlLSUNBZ0lDQWdJQ0FnSUNBZ0lITjBlV3hsUFNKbWFXeHNPaU00WVRReE9ESTdabWxzYkMxdmNHRmphWFI1T2pFN1ptbHNiQzF5ZFd4bE9tNXZibnBsY204N2MzUnliMnRsT201dmJtVWlJQzgrUEhCaGRHZ0tJQ0FnSUNBZ0lDQWdJQ0FnSUdROUltMGdNVEE1TVM0eE15dzJNVGt1T0RneklDMHhOelV1TnpjeExEVTNMakV5TVNBeE1TNDJNamtzTXpVdU9EQTRJREUzTlM0M05qSXNMVFUzTGpFeU1TQXRNVEV1TmpJc0xUTTFMamd3T0NJS0lDQWdJQ0FnSUNBZ0lDQWdJR2x1YTNOallYQmxPbU52Ym01bFkzUnZjaTFqZFhKMllYUjFjbVU5SWpBaUNpQWdJQ0FnSUNBZ0lDQWdJQ0JwWkQwaWNHRjBhRFE0SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdjM1I1YkdVOUltWnBiR3c2SXpoaE5ERTRNanRtYVd4c0xXOXdZV05wZEhrNk1UdG1hV3hzTFhKMWJHVTZibTl1ZW1WeWJ6dHpkSEp2YTJVNmJtOXVaU0lnTHo0OGNHRjBhQW9nSUNBZ0lDQWdJQ0FnSUNBZ1pEMGlUU0E0TmpZdU9UVTNMRGt3TWk0d056UWdPRE0yTGpVc09USTBMakU1T1NBNU5EVXVNVEl4TERFd056TXVOek1nT1RjMUxqVTROaXd4TURVeExqWXhJRGcyTmk0NU5UY3NPVEF5TGpBM05DSUtJQ0FnSUNBZ0lDQWdJQ0FnSUdsdWEzTmpZWEJsT21OdmJtNWxZM1J2Y2kxamRYSjJZWFIxY21VOUlqQWlDaUFnSUNBZ0lDQWdJQ0FnSUNCcFpEMGljR0YwYURVd0lnb2dJQ0FnSUNBZ0lDQWdJQ0FnYzNSNWJHVTlJbVpwYkd3Nkl6aGhOREU0TWp0bWFXeHNMVzl3WVdOcGRIazZNVHRtYVd4c0xYSjFiR1U2Ym05dWVtVnlienR6ZEhKdmEyVTZibTl1WlNJZ0x6NDhjR0YwYUFvZ0lDQWdJQ0FnSUNBZ0lDQWdaRDBpVFNBMk1EY3VORFkxTERrd015NDBORFVnTkRrNExqZzFOU3d4TURVeUxqazNJRFV5T1M0ek1pd3hNRGMxTGpFZ05qTTNMamt6TERreU5TNDFOallnTmpBM0xqUTJOU3c1TURNdU5EUTFJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2FXNXJjMk5oY0dVNlkyOXVibVZqZEc5eUxXTjFjblpoZEhWeVpUMGlNQ0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbGtQU0p3WVhSb05USWlDaUFnSUNBZ0lDQWdJQ0FnSUNCemRIbHNaVDBpWm1sc2JEb2pPR0UwTVRneU8yWnBiR3d0YjNCaFkybDBlVG94TzJacGJHd3RjblZzWlRwdWIyNTZaWEp2TzNOMGNtOXJaVHB1YjI1bElpQXZQanh3WVhSb0NpQWdJQ0FnSUNBZ0lDQWdJQ0JrUFNKdElETTRNQzQyT0Rnc05qSXlMakV5T1NBdE1URXVOakkyTERNMUxqZ3dNU0F4TnpVdU56VTRMRFUzTGpBNUlERXhMall5TVN3dE16VXVPREF4SUMweE56VXVOelV6TEMwMU55NHdPU0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbHVhM05qWVhCbE9tTnZibTVsWTNSdmNpMWpkWEoyWVhSMWNtVTlJakFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnBaRDBpY0dGMGFEVTBJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2MzUjViR1U5SW1acGJHdzZJemhoTkRFNE1qdG1hV3hzTFc5d1lXTnBkSGs2TVR0bWFXeHNMWEoxYkdVNmJtOXVlbVZ5Ynp0emRISnZhMlU2Ym05dVpTSWdMejQ4Y0dGMGFBb2dJQ0FnSUNBZ0lDQWdJQ0FnWkQwaWJTQTNNVFl1TWpnNUxETTNOaTQxT1NBek55NDJOREEyTERBZ01Dd3hPRFF1T0RFMklDMHpOeTQyTkRBMkxEQWdNQ3d0TVRnMExqZ3hOaUI2SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdhVzVyYzJOaGNHVTZZMjl1Ym1WamRHOXlMV04xY25aaGRIVnlaVDBpTUNJS0lDQWdJQ0FnSUNBZ0lDQWdJR2xrUFNKd1lYUm9OVFlpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnpkSGxzWlQwaVptbHNiRG9qT0dFME1UZ3lPMlpwYkd3dGIzQmhZMmwwZVRveE8yWnBiR3d0Y25Wc1pUcHViMjU2WlhKdk8zTjBjbTlyWlRwdWIyNWxJaUF2UGp3dlp6NDhMMmMrUEM5blBqd3ZaejQ4TDNOMlp6ND0nKSBuby1yZXBlYXQsbm9uZTstd2Via2l0LWJhY2tncm91bmQtc2l6ZToxMDAlOy1tb3otYmFja2dyb3VuZC1zaXplOjEwMCU7LW8tYmFja2dyb3VuZC1zaXplOjEwMCU7YmFja2dyb3VuZC1zaXplOjEwMCU7ZGlzcGxheTpibG9jaztmbG9hdDpsZWZ0O3dpZHRoOjkwcHg7aGVpZ2h0OjI1cHh9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFubmVyIC52ZXJzaW9ue21hcmdpbi1sZWZ0OjE0cHg7cG9zaXRpb246cmVsYXRpdmU7dG9wOjZweH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5iYW5uZXIgLmR1cmF0aW9ue3Bvc2l0aW9uOmFic29sdXRlO3JpZ2h0OjE0cHg7dG9wOjZweH0uamFzbWluZV9odG1sLXJlcG9ydGVyICNqYXNtaW5lX2NvbnRlbnR7cG9zaXRpb246Zml4ZWQ7cmlnaHQ6MTAwJX0uamFzbWluZV9odG1sLXJlcG9ydGVyIC52ZXJzaW9ue2NvbG9yOiNhYWF9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFubmVye21hcmdpbi10b3A6MTRweH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5kdXJhdGlvbntjb2xvcjojYWFhO2Zsb2F0OnJpZ2h0fS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5e292ZXJmbG93OmhpZGRlbjsqem9vbToxO21hcmdpbjoxNHB4IDB9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3ltYm9sLXN1bW1hcnkgbGl7ZGlzcGxheTppbmxpbmUtYmxvY2s7aGVpZ2h0OjhweDt3aWR0aDoxNHB4O2ZvbnQtc2l6ZToxNnB4fS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLnBhc3NlZHtmb250LXNpemU6MTRweH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5zeW1ib2wtc3VtbWFyeSBsaS5wYXNzZWQ6YmVmb3Jle2NvbG9yOiMwMDcwNjk7Y29udGVudDoiXDAyMDIyIn0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5zeW1ib2wtc3VtbWFyeSBsaS5mYWlsZWR7bGluZS1oZWlnaHQ6OXB4fS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLmZhaWxlZDpiZWZvcmV7Y29sb3I6I2NhM2ExMTtjb250ZW50OiJcZDciO2ZvbnQtd2VpZ2h0OmJvbGQ7bWFyZ2luLWxlZnQ6LTFweH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5zeW1ib2wtc3VtbWFyeSBsaS5kaXNhYmxlZHtmb250LXNpemU6MTRweH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5zeW1ib2wtc3VtbWFyeSBsaS5kaXNhYmxlZDpiZWZvcmV7Y29sb3I6I2JhYmFiYTtjb250ZW50OiJcMDIwMjIifS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLnBlbmRpbmd7bGluZS1oZWlnaHQ6MTdweH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5zeW1ib2wtc3VtbWFyeSBsaS5wZW5kaW5nOmJlZm9yZXtjb2xvcjojYmE5ZDM3O2NvbnRlbnQ6IioifS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLmVtcHR5e2ZvbnQtc2l6ZToxNHB4fS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLmVtcHR5OmJlZm9yZXtjb2xvcjojYmE5ZDM3O2NvbnRlbnQ6IlwwMjAyMiJ9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuZXhjZXB0aW9uc3tjb2xvcjojZmZmO2Zsb2F0OnJpZ2h0O21hcmdpbi10b3A6NXB4O21hcmdpbi1yaWdodDo1cHh9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFye2xpbmUtaGVpZ2h0OjI4cHg7Zm9udC1zaXplOjE0cHg7ZGlzcGxheTpibG9jaztjb2xvcjojZWVlfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhci5mYWlsZWR7YmFja2dyb3VuZC1jb2xvcjojY2EzYTExfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhci5wYXNzZWR7YmFja2dyb3VuZC1jb2xvcjojMDA3MDY5fS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhci5za2lwcGVke2JhY2tncm91bmQtY29sb3I6I2JhYmFiYX0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5iYXIuZXJyb3JlZHtiYWNrZ3JvdW5kLWNvbG9yOiNjYTNhMTF9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFyLm1lbnV7YmFja2dyb3VuZC1jb2xvcjojZmZmO2NvbG9yOiNhYWF9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFyLm1lbnUgYXtjb2xvcjojMzMzfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhciBhe2NvbG9yOndoaXRlfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIuc3BlYy1saXN0IC5iYXIubWVudS5mYWlsdXJlLWxpc3QsLmphc21pbmVfaHRtbC1yZXBvcnRlci5zcGVjLWxpc3QgLnJlc3VsdHMgLmZhaWx1cmVze2Rpc3BsYXk6bm9uZX0uamFzbWluZV9odG1sLXJlcG9ydGVyLmZhaWx1cmUtbGlzdCAuYmFyLm1lbnUuc3BlYy1saXN0LC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIuZmFpbHVyZS1saXN0IC5zdW1tYXJ5e2Rpc3BsYXk6bm9uZX0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5ydW5uaW5nLWFsZXJ0e2JhY2tncm91bmQtY29sb3I6IzY2Nn0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5yZXN1bHRze21hcmdpbi10b3A6MTRweH0uamFzbWluZV9odG1sLXJlcG9ydGVyLnNob3dEZXRhaWxzIC5zdW1tYXJ5TWVudUl0ZW17Zm9udC13ZWlnaHQ6bm9ybWFsO3RleHQtZGVjb3JhdGlvbjppbmhlcml0fS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIuc2hvd0RldGFpbHMgLnN1bW1hcnlNZW51SXRlbTpob3Zlcnt0ZXh0LWRlY29yYXRpb246dW5kZXJsaW5lfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIuc2hvd0RldGFpbHMgLmRldGFpbHNNZW51SXRlbXtmb250LXdlaWdodDpib2xkO3RleHQtZGVjb3JhdGlvbjp1bmRlcmxpbmV9Lmphc21pbmVfaHRtbC1yZXBvcnRlci5zaG93RGV0YWlscyAuc3VtbWFyeXtkaXNwbGF5Om5vbmV9Lmphc21pbmVfaHRtbC1yZXBvcnRlci5zaG93RGV0YWlscyAjZGV0YWlsc3tkaXNwbGF5OmJsb2NrfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN1bW1hcnlNZW51SXRlbXtmb250LXdlaWdodDpib2xkO3RleHQtZGVjb3JhdGlvbjp1bmRlcmxpbmV9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3VtbWFyeXttYXJnaW4tdG9wOjE0cHh9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3VtbWFyeSB1bHtsaXN0LXN0eWxlLXR5cGU6bm9uZTttYXJnaW4tbGVmdDoxNHB4O3BhZGRpbmctdG9wOjA7cGFkZGluZy1sZWZ0OjB9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3VtbWFyeSB1bC5zdWl0ZXttYXJnaW4tdG9wOjdweDttYXJnaW4tYm90dG9tOjdweH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdW1tYXJ5IGxpLnBhc3NlZCBhe2NvbG9yOiMwMDcwNjl9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3VtbWFyeSBsaS5mYWlsZWQgYXtjb2xvcjojY2EzYTExfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN1bW1hcnkgbGkuZW1wdHkgYXtjb2xvcjojYmE5ZDM3fS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN1bW1hcnkgbGkucGVuZGluZyBhe2NvbG9yOiNiYTlkMzd9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuZGVzY3JpcHRpb24rLnN1aXRle21hcmdpbi10b3A6MH0uamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdWl0ZXttYXJnaW4tdG9wOjE0cHh9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3VpdGUgYXtjb2xvcjojMzMzfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmZhaWx1cmVzIC5zcGVjLWRldGFpbHttYXJnaW4tYm90dG9tOjI4cHh9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuZmFpbHVyZXMgLnNwZWMtZGV0YWlsIC5kZXNjcmlwdGlvbntiYWNrZ3JvdW5kLWNvbG9yOiNjYTNhMTF9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAuZmFpbHVyZXMgLnNwZWMtZGV0YWlsIC5kZXNjcmlwdGlvbiBhe2NvbG9yOndoaXRlfS5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnJlc3VsdC1tZXNzYWdle3BhZGRpbmctdG9wOjE0cHg7Y29sb3I6IzMzMzt3aGl0ZS1zcGFjZTpwcmV9Lmphc21pbmVfaHRtbC1yZXBvcnRlciAucmVzdWx0LW1lc3NhZ2Ugc3Bhbi5yZXN1bHR7ZGlzcGxheTpibG9ja30uamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdGFjay10cmFjZXttYXJnaW46NXB4IDAgMCAwO21heC1oZWlnaHQ6MjI0cHg7b3ZlcmZsb3c6YXV0bztsaW5lLWhlaWdodDoxOHB4O2NvbG9yOiM2NjY7Ym9yZGVyOjFweCBzb2xpZCAjZGRkO2JhY2tncm91bmQ6d2hpdGU7d2hpdGUtc3BhY2U6cHJlfQ==');
+  link.setAttribute('href',"data:text/css;charset=utf8;base64,Ym9keSB7IG92ZXJmbG93LXk6IHNjcm9sbDsgfQoKLmphc21pbmVfaHRtbC1yZXBvcnRlciB7IGJhY2tncm91bmQtY29sb3I6ICNlZWU7IHBhZGRpbmc6IDVweDsgbWFyZ2luOiAtOHB4OyBmb250LXNpemU6IDExcHg7IGZvbnQtZmFtaWx5OiBNb25hY28sICJMdWNpZGEgQ29uc29sZSIsIG1vbm9zcGFjZTsgbGluZS1oZWlnaHQ6IDE0cHg7IGNvbG9yOiAjMzMzOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgYSB7IHRleHQtZGVjb3JhdGlvbjogbm9uZTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIGE6aG92ZXIgeyB0ZXh0LWRlY29yYXRpb246IHVuZGVybGluZTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIHAsIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgaDEsIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgaDIsIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgaDMsIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgaDQsIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgaDUsIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgaDYgeyBtYXJnaW46IDA7IGxpbmUtaGVpZ2h0OiAxNHB4OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhbm5lciwgLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3ltYm9sLXN1bW1hcnksIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN1bW1hcnksIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnJlc3VsdC1tZXNzYWdlLCAuamFzbWluZV9odG1sLXJlcG9ydGVyIC5zcGVjIC5kZXNjcmlwdGlvbiwgLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3BlYy1kZXRhaWwgLmRlc2NyaXB0aW9uLCAuamFzbWluZV9odG1sLXJlcG9ydGVyIC5hbGVydCAuYmFyLCAuamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdGFjay10cmFjZSB7IHBhZGRpbmctbGVmdDogOXB4OyBwYWRkaW5nLXJpZ2h0OiA5cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFubmVyIHsgcG9zaXRpb246IHJlbGF0aXZlOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhbm5lciAudGl0bGUgeyBiYWNrZ3JvdW5kOiB1cmwoJ2RhdGE6aW1hZ2UvcG5nO2Jhc2U2NCxpVkJPUncwS0dnb0FBQUFOU1VoRVVnQUFBRm9BQUFBWkNBTUFBQUNHdXNueUFBQUNkbEJNVkVYLy8vLy9BUCtBZ0lDcVZhcUFRSUNaTTVtQVZZQ1NTWktBUUlDT09ZNkFUWUNMUm91QVFJQ0pPNG1TU1lDSVJJaVBRSUNIUEllT1I0Q0dRNGFNUUlDR1BZYUxSb0NGUTRXS1FJQ1BQWVdKUllDT1FvU0pRSUNOUG9TSVJJQ01Rb1NIUUlDSFJJQ0tRb09IUUlDS1BvT0pPNE9KUVlPTVFJQ01RNENJUVlLTFFJQ0lQb0tMUTRDS1FJQ05Qb0tKUUlTTVE0S0pRb1NMUVlLSlFJU0xRNEtJUW9TS1FZS0lRSUNJUUlTTVFvU0tRWUtMUUlPTFFvT0pRWUdMUUlPS1FJT01Rb0dLUVlPTFFZR0tRSU9MUW9HSlFZT0pRSU9LUVlHSlFJT0tRb0dLUUlHTFFJS0xRNEtLUW9HTFFZS0pRSUdLUVlLSlFJR0tRSUtKUW9HS1FZS0xRSUdLUVlLTFFJT0pRb0tLUW9PSlFZS0tRSU9KUW9LS1FvT0tRSU9MUW9LS1FZT0xRWUtKUUlPS1FvS0tRWUtLUW9LSlFZT0tRWUtMUUlPS1FvS0xRWU9LUVlLTFFJT0pRb0dLUVlLSlFZR0pRb0dLUVlLTFFvR0xRWUdLUW9HSlFZS0tRWUdKUUlLS1FvR0pRWUtMUUlLS1FZR0xRWUtLUVlHS1FZR0tRWUtKUVlPS1FvS0pRWU9LUVlLTFFZT0xRWU9LUVlLTFFZT0tRb0tLUVlLS1FZT0tRWU9KUVlLS1FZS0xRWUtLUUlLS1FvS0tRWUtLUVlLS1FvS0pRSUtLUVlLTFFZS0tRWUtLUUlLS1FZS0tRWUtLUVlLS1FJS0tRWUtKUVlHTFFZR0tRWUtLUVlLS1FZR0tRSUtLUVlHS1FZT0pRb0tLUVlPTFFZS0tRWU9LUW9LS1FZS0tRb0tLUVlLS1FZS0pRWUtMUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtKUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtMUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLS1FZS0tRWUtLUVlLbUlEcEVBQUFBMFhSU1RsTUFBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWUdSb2JIQjBlSHlBaUl5UWxKeWNvS2lzc0xTNHdNVFExTmpjNE9UbzdQRHcrUDBCQ1EwUklTVXBMVEUxT1VGTlVWVmRZV0ZsYVcxNWZZR0ZpWTJabmFHbHFhMnh0YjNCeGNuTjBkbmg1ZW50OGZYNS9nSUdDaElXSWlveU5qbytRa1pPVWxaYVltWnFibkoyZW9LR2lvNldtcUttc3JhNnZzTEd6dHJlNHVicTd2TDIrd01IRHhNakp5c3ZOenMvUTBkTFUxdGZZMmR2YzN0L2c0ZUxqNWVibjZPbnE2K3p0N3Uvdzh2UDA5ZmIzK1BuNisvejkvdmtWUVhBQUFBTWFTVVJCVkhoZTVkWHhWMU4xR01meHoyQUJiRGdJQW01VkRKT3lWRElKTFVNYVZwQldVWlVhR2JtcW9HcFpSU2lHaVJXcDZLb1o1QUIwWlk1MFJJbVpRSWxhaEtrTVlYdi9SOTBkQnZFVC9ySmZPcjNPdWM4djk5elBlYzU5enZmNTZqK3ZZS2xWaVNmNzI1MFg0TXIzTzI5VGdxMDhCZEdCNERoY2VrRUo1WWtRS0ZzZ1daZHRqOUpwVitJOHhQakxGcWtyc0VJcU84UEhTcGlzMzZqV2F6Y3FqRXNmSmprdlJzc1ZVMzdTZElPdTRYQ2Y1dkVKUHNud0pwblJOVTlKbXhoTWs4bDFnZWhJcnE3aFRGanpPRCtWZjg4NjI5cUtNSlZObHRJbkZlUmV4UlF5SmxOZXFkMWlHRGxTenJJVUl5WGJ5RmZtM1JZcHJjUVJlN2xxdFd5R1liZmM2ZFQwUjJ2bWRPT2tYM3U1NUMxclAzN2Z0aUgrdERieTRyL1JCVDB3OFR5RWtyK2VwQjlYZ1BEbVNZWVdicmhDdUZZYUl5dzNmRFFBWFRuU2toK0FOb2ZpSG1XZjlsK0ZZMUk5MEZkUVRldHN0TzAwbzIzbm92elZzSjd1QjMvQzVUa2JqUndaNUplcndWNGlSV3E5SEZiRk1hSy9kMFRZcWF5UmlRUHVJeHhTM0J1OEpXVTkwLzYwdEtpN3ZraGF6bmV6MGEvVGJWT0tqNUNhT1poNmZXRzYvTHl2OUIvWkxSMWd3L1MvZnBiZVZEM01DVzFsaTZTdldET242NXRyOTkvdXZXdEJTMFhEbTRzMXQrc09IcEcwa3BCS3gvbDc3d09TbnhMcGN4NlRYbVhMVFBRT0tZT2Y5UTFkZnI4L1NKMm1GZEN2bDFZbDkzRGlIVVp2WGVMSmJHU3pZdTVnVkoyc2xiU2FrT1I4ZHhDcTVhZFEyb0ZMcXNFOUV4M0w0cVFPMGVPUGVVNXg1NmJ5cFhwNG9uU0ViNU9rSUNYNmxEYXQ1NVRlb3p0TktRY0phYWtyejlLQ2I5NW9ENjlJS3EreUtXNFhQamtuYVM1MlYwVFpxRTJjVHRYamNIU0NSbVVPODhlKzg1aGozRVA3NGk5cDhweWx3N2x4Z01EeXlsNk9WN1plam5qTk1mYXR1ODdMeFJiSDBJUzM1Z3QyYTRaam1HcFZCZEtLM1dyNklOazhqV1dTR3FiQTU1Q0tnakJSQzZFOXc3OHlkVGczQUJTM0FGVjFRTjBZNEFhMnBnRWpXblFVUmo5TDBheUs2UjJ5c0VxeEhVS3pZbkx2dnlVK2k5S00ySkhKekU0dnlaT3lEY093T3N5U2FqZUxQYzhzTnZQSmtGbHlKZDIwd3BxQXpaZUFmWjNvV3lieGQrUC8zaitTRzN1U0JkZjJWUUFBQUFCSlJVNUVya0pnZ2c9PScpIG5vLXJlcGVhdDsgYmFja2dyb3VuZDogdXJsKCdkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBEOTRiV3dnZG1WeWMybHZiajBpTVM0d0lpQmxibU52WkdsdVp6MGlWVlJHTFRnaUlITjBZVzVrWVd4dmJtVTlJbTV2SWo4K0Nqd2hMUzBnUTNKbFlYUmxaQ0IzYVhSb0lFbHVhM05qWVhCbElDaG9kSFJ3T2k4dmQzZDNMbWx1YTNOallYQmxMbTl5Wnk4cElDMHRQZ29LUEhOMlp3b2dJQ0I0Yld4dWN6cGtZejBpYUhSMGNEb3ZMM0IxY213dWIzSm5MMlJqTDJWc1pXMWxiblJ6THpFdU1TOGlDaUFnSUhodGJHNXpPbU5qUFNKb2RIUndPaTh2WTNKbFlYUnBkbVZqYjIxdGIyNXpMbTl5Wnk5dWN5TWlDaUFnSUhodGJHNXpPbkprWmowaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1UazVPUzh3TWk4eU1pMXlaR1l0YzNsdWRHRjRMVzV6SXlJS0lDQWdlRzFzYm5NNmMzWm5QU0pvZEhSd09pOHZkM2QzTG5jekxtOXlaeTh5TURBd0wzTjJaeUlLSUNBZ2VHMXNibk05SW1oMGRIQTZMeTkzZDNjdWR6TXViM0puTHpJd01EQXZjM1puSWdvZ0lDQjRiV3h1Y3pwcGJtdHpZMkZ3WlQwaWFIUjBjRG92TDNkM2R5NXBibXR6WTJGd1pTNXZjbWN2Ym1GdFpYTndZV05sY3k5cGJtdHpZMkZ3WlNJS0lDQWdkbVZ5YzJsdmJqMGlNUzR4SWdvZ0lDQjNhV1IwYUQwaU5qZ3hMamsyTWpVeUlnb2dJQ0JvWldsbmFIUTlJakU0Tnk0MUlnb2dJQ0JwWkQwaWMzWm5NaUlLSUNBZ2VHMXNPbk53WVdObFBTSndjbVZ6WlhKMlpTSStQRzFsZEdGa1lYUmhDaUFnSUNBZ2FXUTlJbTFsZEdGa1lYUmhPQ0krUEhKa1pqcFNSRVkrUEdOak9sZHZjbXNLSUNBZ0lDQWdJQ0FnY21SbU9tRmliM1YwUFNJaVBqeGtZenBtYjNKdFlYUSthVzFoWjJVdmMzWm5LM2h0YkR3dlpHTTZabTl5YldGMFBqeGtZenAwZVhCbENpQWdJQ0FnSUNBZ0lDQWdjbVJtT25KbGMyOTFjbU5sUFNKb2RIUndPaTh2Y0hWeWJDNXZjbWN2WkdNdlpHTnRhWFI1Y0dVdlUzUnBiR3hKYldGblpTSWdMejQ4TDJOak9sZHZjbXMrUEM5eVpHWTZVa1JHUGp3dmJXVjBZV1JoZEdFK1BHUmxabk1LSUNBZ0lDQnBaRDBpWkdWbWN6WWlQanhqYkdsd1VHRjBhQW9nSUNBZ0lDQWdhV1E5SW1Oc2FYQlFZWFJvTVRnaVBqeHdZWFJvQ2lBZ0lDQWdJQ0FnSUdROUlrMGdNQ3d4TlRBd0lEQXNNQ0JzSURVME5UVXVOelFzTUNBd0xERTFNREFnVENBd0xERTFNREFnZWlJS0lDQWdJQ0FnSUNBZ2FXNXJjMk5oY0dVNlkyOXVibVZqZEc5eUxXTjFjblpoZEhWeVpUMGlNQ0lLSUNBZ0lDQWdJQ0FnYVdROUluQmhkR2d5TUNJZ0x6NDhMMk5zYVhCUVlYUm9Qand2WkdWbWN6NDhad29nSUNBZ0lIUnlZVzV6Wm05eWJUMGliV0YwY21sNEtERXVNalVzTUN3d0xDMHhMakkxTERBc01UZzNMalVwSWdvZ0lDQWdJR2xrUFNKbk1UQWlQanhuQ2lBZ0lDQWdJQ0IwY21GdWMyWnZjbTA5SW5OallXeGxLREF1TVN3d0xqRXBJZ29nSUNBZ0lDQWdhV1E5SW1jeE1pSStQR2NLSUNBZ0lDQWdJQ0FnYVdROUltY3hOQ0krUEdjS0lDQWdJQ0FnSUNBZ0lDQmpiR2x3TFhCaGRHZzlJblZ5YkNnalkyeHBjRkJoZEdneE9Da2lDaUFnSUNBZ0lDQWdJQ0FnYVdROUltY3hOaUkrUEhCaGRHZ0tJQ0FnSUNBZ0lDQWdJQ0FnSUdROUltMGdNVFUwTkN3MU9Ua3VORE0wSUdNZ01DNDVNaXd0TkRBdU16VXlJREkxTGpZNExDMDRNUzQyTURJZ056RXVOVE1zTFRneExqWXdNaUF5Tnk0MU1Td3dJRFEzTGpZNExERXlMamd6TWlBMk1TNDBOQ3d6TlM0M05UUWdNVEl1T0RNc01qSXVPVE1nTVRJdU9ETXNOVFl1T0RVeUlERXlMamd6TERneUxqVXlOeUJzSURBc016STVMakU0TkNBdE56RXVOVElzTUNBd0xERXdOQzQxTkRNZ01qWTJMamd6TERBZ01Dd3RNVEEwTGpVME15QXROekF1Tml3d0lEQXNMVE0wTkM0M055QmpJREFzTFRVNExqWTVNU0F0TXk0Mk9Dd3RNVEEwTGpVek1TQXRORFF1T1RNc0xURTFNaTR5TVRnZ0xUTTJMalk0TEMwME1pNHhPQ0F0T1RZdU1qZ3NMVFkyTGpBeUlDMHhOVE11TVRRc0xUWTJMakF5SUMweE1UY3VNemNzTUNBdE1qQTNMakkwTERjM0xqazBNU0F0TWpBeUxqWTBMREU1Tnk0eE5EVWdiQ0F4TXpBdU1pd3dJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2FXNXJjMk5oY0dVNlkyOXVibVZqZEc5eUxXTjFjblpoZEhWeVpUMGlNQ0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbGtQU0p3WVhSb01qSWlDaUFnSUNBZ0lDQWdJQ0FnSUNCemRIbHNaVDBpWm1sc2JEb2pPR0UwTVRneU8yWnBiR3d0YjNCaFkybDBlVG94TzJacGJHd3RjblZzWlRwdWIyNTZaWEp2TzNOMGNtOXJaVHB1YjI1bElpQXZQanh3WVhSb0NpQWdJQ0FnSUNBZ0lDQWdJQ0JrUFNKdElESXpNREV1TkN3Mk5qSXVOamsxSUdNZ01DdzRNQzQzTURNZ0xUWTJMamswTERFME5TNDRNVE1nTFRFME55NDJNeXd4TkRVdU9ERXpJQzA0TXk0ME5Dd3dJQzB4TkRjdU5qTXNMVFk0TGpjNE1TQXRNVFEzTGpZekxDMHhOVEV1TXpBeElEQXNMVGM1TGpjNE5TQTJOaTQ1TkN3dE1UUTFMamd3TVNBeE5EVXVPQ3d0TVRRMUxqZ3dNU0E0TkM0ek5Td3dJREUwT1M0ME5pdzJOeTQ0TlRJZ01UUTVMalEyTERFMU1TNHlPRGtnZWlCdElDMHhMamd6TEMweE9ERXVOVFEzSUdNZ0xUTTFMamMzTEMwMU5DNHdPVGNnTFRrekxqVXpMQzAzT0M0NE5Ua2dMVEUxTnk0M01pd3ROemd1T0RVNUlDMHhOREF1TXl3d0lDMHlOVEV1TWpRc01URTJMalEwT1NBdE1qVXhMakkwTERJMU5DNDVNVGdnTUN3eE5ESXVNVEk1SURFeE15NDNMREkyTUM0ME1TQXlOVFl1TnpRc01qWXdMalF4SURZekxqSTNMREFnTVRFNExqSTVMQzB5T1M0ek16WWdNVFV5TGpJeUxDMDRNaTQxTWpNZ2JDQXdMRFk1TGpZNE55QXhOelV1TVRRc01DQXdMQzB4TURRdU5USTNJQzAyTVM0ME5Dd3dJREFzTFRJNE1DNDFPVGdnTmpFdU5EUXNNQ0F3TEMweE1EUXVOVEkzSUMweE56VXVNVFFzTUNBd0xEWTJMakF4T1NJS0lDQWdJQ0FnSUNBZ0lDQWdJR2x1YTNOallYQmxPbU52Ym01bFkzUnZjaTFqZFhKMllYUjFjbVU5SWpBaUNpQWdJQ0FnSUNBZ0lDQWdJQ0JwWkQwaWNHRjBhREkwSWdvZ0lDQWdJQ0FnSUNBZ0lDQWdjM1I1YkdVOUltWnBiR3c2SXpoaE5ERTRNanRtYVd4c0xXOXdZV05wZEhrNk1UdG1hV3hzTFhKMWJHVTZibTl1ZW1WeWJ6dHpkSEp2YTJVNmJtOXVaU0lnTHo0OGNHRjBhQW9nSUNBZ0lDQWdJQ0FnSUNBZ1pEMGliU0F5TmpJeUxqTXpMRFUxTnk0eU5UZ2dZeUF6TGpZM0xDMDBOQzR3TVRZZ016TXVNREVzTFRjekxqTTBPQ0EzT0M0NE5pd3ROek11TXpRNElETXpMamt6TERBZ05qWXVPVE1zTWpNdU9ESTBJRFkyTGprekxEWXdMalV3TkNBd0xEUTRMall3TmlBdE5EVXVPRFFzTlRZdU9EVTJJQzA0TXk0ME5DdzJOaTQ1TkRFZ0xUZzFMakk0TERJeUxqQXdOQ0F0TVRjNExqZ3hMRFE0TGpZd05pQXRNVGM0TGpneExERTFOUzQ0TnprZ01DdzVNeTQxTXpZZ056Z3VPRFlzTVRRM0xqWXpNeUF4TmpVdU9UZ3NNVFEzTGpZek15QTBOQ3d3SURnekxqUXpMQzA1TGpFM05pQXhNVEF1T1RRc0xUUTBMakF3T0NCc0lEQXNNek11T1RJeUlEZ3lMalV6TERBZ01Dd3RNVE15TGprMk5TQXRNVEE0TGpJeExEQWdZeUF0TVM0NE15d3pOQzQ0TlRZZ0xUSTRMalF5TERVM0xqYzNOQ0F0TmpNdU1qWXNOVGN1TnpjMElDMHpNQzR5Tml3d0lDMDJNaTR6TlN3dE1UY3VOREl5SUMwMk1pNHpOU3d0TlRFdU16UTRJREFzTFRRMUxqZzBOeUEwTkM0NU15d3ROVFV1T1RNZ09EQXVOamtzTFRZMExqRTRJRGc0TGpBeUxDMHlNQzR4TnpVZ01UZ3lMalEzTEMwME55NDJPVFVnTVRneUxqUTNMQzB4TlRjdU56TTBJREFzTFRrNUxqQXlOeUF0T0RNdU5EUXNMVEUxTkM0d016a2dMVEUzTlM0eE15d3RNVFUwTGpBek9TQXRORGt1TlRNc01DQXRPVFF1TkRZc01UVXVOVGd5SUMweE1qWXVOVFVzTlRNdU1UZ2diQ0F3TEMwME1DNHpOQ0F0T0RVdU1qY3NNQ0F3TERFME1pNHhNamtnTVRFMExqWXlMREFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnBibXR6WTJGd1pUcGpiMjV1WldOMGIzSXRZM1Z5ZG1GMGRYSmxQU0l3SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdhV1E5SW5CaGRHZ3lOaUlLSUNBZ0lDQWdJQ0FnSUNBZ0lITjBlV3hsUFNKbWFXeHNPaU00WVRReE9ESTdabWxzYkMxdmNHRmphWFI1T2pFN1ptbHNiQzF5ZFd4bE9tNXZibnBsY204N2MzUnliMnRsT201dmJtVWlJQzgrUEhCaGRHZ0tJQ0FnSUNBZ0lDQWdJQ0FnSUdROUltMGdNams0T0M0eE9DdzRNREF1TWpVMElDMDJNeTR5Tml3d0lEQXNNVEEwTGpVeU55QXhOalV1TURVc01DQXdMQzAzTXk0ek5UVWdZeUF6TVM0eE9DdzFNUzR6TkRjZ056Z3VPRFlzT0RVdU1qYzNJREUwTVM0eU1TdzROUzR5TnpjZ05qY3VPRFVzTUNBeE1qUXVOekVzTFRReExqSTFPQ0F4TlRJdU1qRXNMVEV3TWk0Mk9Ua2dNall1Tml3Mk1pNHpOVEVnT1RJdU5qSXNNVEF5TGpZNU9TQXhOakF1TkRjc01UQXlMalk1T1NBMU15NHhPU3d3SURFd05TNDBOaXd0TWpJZ01UUXhMakl4TEMwMk1pNHpOVEVnTXpndU5USXNMVFEwTGprek9DQXpPQzQxTWl3dE9UTXVOVE15SURNNExqVXlMQzB4TkRrdU5EVTNJR3dnTUN3dE1UZzFMakl6T1NBMk15NHlOeXd3SURBc0xURXdOQzQxTWpjZ0xUSXpPQzQwTWl3d0lEQXNNVEEwTGpVeU55QTJNeTR5T0N3d0lEQXNNVFUzTGpjeE5TQmpJREFzTXpJdU1UQXlJREFzTmpBdU5USTNJQzB4TkM0Mk55dzRPQzQ1TlRjZ0xURTRMak0wTERJMkxqVTRNaUF0TkRndU5qRXNOREF1TXpRMElDMDNPUzQzTnl3ME1DNHpORFFnTFRNd0xqSTJMREFnTFRZekxqSTRMQzB4TWk0NE5EUWdMVGd5TGpVekxDMHpOaTQyTnpJZ0xUSXlMamt6TEMweU9TNHpOVFVnTFRJeUxqa3pMQzAxTmk0NE5qTWdMVEl5TGprekxDMDVNaTQyTWprZ2JDQXdMQzB4TlRjdU56RTFJRFl6TGpJM0xEQWdNQ3d0TVRBMExqVXlOeUF0TWpNNExqUXhMREFnTUN3eE1EUXVOVEkzSURZekxqSTRMREFnTUN3eE5UQXVNemd6SUdNZ01Dd3lPUzR6TkRnZ01DdzJOaTR3TWpNZ0xURTBMalkzTERreExqWTVPU0F0TVRVdU5Ua3NNamt1TXpNMklDMDBOeTQyT1N3ME5DNDVNelFnTFRnd0xqY3NORFF1T1RNMElDMHpNUzR4T0N3d0lDMDFOeTQzTnl3dE1URXVNREE0SUMwM055NDVOQ3d0TXpVdU56YzBJQzB5TkM0M055d3RNekF1TWpVeklDMHlOaTQyTEMwMk1pNHpORE1nTFRJMkxqWXNMVGs1TGprME1TQnNJREFzTFRFMU1TNHpNREVnTmpNdU1qY3NNQ0F3TEMweE1EUXVOVEkzSUMweU16Z3VOQ3d3SURBc01UQTBMalV5TnlBMk15NHlOaXd3SURBc01qZ3dMalU1T0NJS0lDQWdJQ0FnSUNBZ0lDQWdJR2x1YTNOallYQmxPbU52Ym01bFkzUnZjaTFqZFhKMllYUjFjbVU5SWpBaUNpQWdJQ0FnSUNBZ0lDQWdJQ0JwWkQwaWNHRjBhREk0SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdjM1I1YkdVOUltWnBiR3c2SXpoaE5ERTRNanRtYVd4c0xXOXdZV05wZEhrNk1UdG1hV3hzTFhKMWJHVTZibTl1ZW1WeWJ6dHpkSEp2YTJVNmJtOXVaU0lnTHo0OGNHRjBhQW9nSUNBZ0lDQWdJQ0FnSUNBZ1pEMGliU0F6T1RrNExqWTJMRGsxTVM0MU5EY2dMVEV4TVM0NE55d3dJREFzTVRFNExqSTVNeUF4TVRFdU9EY3NNQ0F3TEMweE1UZ3VNamt6SUhvZ2JTQXdMQzAwTXpFdU9Ea3hJRFl6TGpJM0xEQWdNQ3d0TVRBMExqVXlOeUF0TWpNNUxqTXpMREFnTUN3eE1EUXVOVEkzSURZMExqRTVMREFnTUN3eU9EQXVOVGs0SUMwMk15NHlOeXd3SURBc01UQTBMalV5TnlBeE56VXVNVFFzTUNBd0xDMHpPRFV1TVRJMUlnb2dJQ0FnSUNBZ0lDQWdJQ0FnYVc1cmMyTmhjR1U2WTI5dWJtVmpkRzl5TFdOMWNuWmhkSFZ5WlQwaU1DSUtJQ0FnSUNBZ0lDQWdJQ0FnSUdsa1BTSndZWFJvTXpBaUNpQWdJQ0FnSUNBZ0lDQWdJQ0J6ZEhsc1pUMGlabWxzYkRvak9HRTBNVGd5TzJacGJHd3RiM0JoWTJsMGVUb3hPMlpwYkd3dGNuVnNaVHB1YjI1NlpYSnZPM04wY205clpUcHViMjVsSWlBdlBqeHdZWFJvQ2lBZ0lDQWdJQ0FnSUNBZ0lDQmtQU0p0SURReE5Ua3VNVElzT0RBd0xqSTFOQ0F0TmpNdU1qY3NNQ0F3TERFd05DNDFNamNnTVRjMUxqRTBMREFnTUN3dE5qa3VOamczSUdNZ01qa3VNelVzTlRRdU1UQXhJRGcwTGpNMkxEZ3dMalk1T1NBeE5EUXVPRGNzT0RBdU5qazVJRFV6TGpFNUxEQWdNVEExTGpRMUxDMHlNaTR3TVRZZ01UUXhMakl5TEMwMk1DNDFNamNnTkRBdU16UXNMVFEwTGprek5DQTBNUzR5Tml3dE9EZ3VNRE15SURReExqSTJMQzB4TkRNdU9UVTNJR3dnTUN3dE1Ua3hMalkxTXlBMk15NHlOeXd3SURBc0xURXdOQzQxTWpjZ0xUSXpPQzQwTERBZ01Dd3hNRFF1TlRJM0lEWXpMakkyTERBZ01Dd3hOVGd1TmpNM0lHTWdNQ3d6TUM0eU5qSWdNQ3cyTVM0ME16UWdMVEU1TGpJMkxEZzRMakF6TlNBdE1qQXVNVGNzTWpZdU5UZ3lJQzAxTXk0eE9Dd3pPUzQwTVRRZ0xUZzJMakU1TERNNUxqUXhOQ0F0TXpNdU9UTXNNQ0F0TmpndU56Y3NMVEV6TGpjMUlDMDRPQzQ1TkN3dE5ERXVNalVnTFRJeExqQTVMQzB5Tnk0MUlDMHlNUzR3T1N3dE5qa3VOamczSUMweU1TNHdPU3d0TVRBeUxqY3dOeUJzSURBc0xURTBNaTR4TWprZ05qTXVNallzTUNBd0xDMHhNRFF1TlRJM0lDMHlNemd1TkN3d0lEQXNNVEEwTGpVeU55QTJNeTR5Tnl3d0lEQXNNamd3TGpVNU9DSUtJQ0FnSUNBZ0lDQWdJQ0FnSUdsdWEzTmpZWEJsT21OdmJtNWxZM1J2Y2kxamRYSjJZWFIxY21VOUlqQWlDaUFnSUNBZ0lDQWdJQ0FnSUNCcFpEMGljR0YwYURNeUlnb2dJQ0FnSUNBZ0lDQWdJQ0FnYzNSNWJHVTlJbVpwYkd3Nkl6aGhOREU0TWp0bWFXeHNMVzl3WVdOcGRIazZNVHRtYVd4c0xYSjFiR1U2Ym05dWVtVnlienR6ZEhKdmEyVTZibTl1WlNJZ0x6NDhjR0YwYUFvZ0lDQWdJQ0FnSUNBZ0lDQWdaRDBpYlNBMU1EZ3lMalE0TERjd015NDVOalVnWXlBdE1Ua3VNalFzTnpBdU5qQTFJQzA0TVM0MkxERXhOUzQxTkRjZ0xURTFOQzR3TkN3eE1UVXVOVFEzSUMwMk5pNHdOQ3d3SUMweE1qa3VNeXd0TlRFdU16UTRJQzB4TkRNdU1EVXNMVEV4TlM0MU5EY2diQ0F5T1RjdU1Ea3NNQ0I2SUcwZ09EVXVNamNzTFRFME5DNDRPRE1nWXlBdE16Z3VOVEVzTFRrekxqVXlNeUF0TVRJNUxqSTNMQzB4TlRZdU56a3pJQzB5TXpFdU1EVXNMVEUxTmk0M09UTWdMVEUwTXk0d055d3dJQzB5TlRjdU5qZ3NNVEV4TGpnM01TQXRNalUzTGpZNExESTFOUzQ0TXpZZ01Dd3hORFF1T0RneklERXdPUzR4TWl3eU5qRXVNekk0SURJMU5DNDVNU3d5TmpFdU16STRJRFkzTGpnM0xEQWdNVE0xTGpjeUxDMHpNQzR5TlRnZ01UZ3pMak01TEMwM09DNDROak1nTkRndU5qSXNMVFV4TGpNME5DQTJPQzQzT1N3dE1URXpMalk1TlNBMk9DNDNPU3d0TVRnekxqTTRNeUJzSUMwekxqWTNMQzB6T1M0ME16UWdMVE01Tmk0eE15d3dJR01nTVRRdU5qY3NMVFkzTGpnMk15QTNOeTR3TXl3dE1URTNMak0yTXlBeE5EWXVOeklzTFRFeE55NHpOak1nTkRndU5Ua3NNQ0E1TUM0M05pd3hPQzR6TWpnZ01URTRMakk0TERVNExqWTNNaUJzSURFeE5pNDBOQ3d3SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdhVzVyYzJOaGNHVTZZMjl1Ym1WamRHOXlMV04xY25aaGRIVnlaVDBpTUNJS0lDQWdJQ0FnSUNBZ0lDQWdJR2xrUFNKd1lYUm9NelFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnpkSGxzWlQwaVptbHNiRG9qT0dFME1UZ3lPMlpwYkd3dGIzQmhZMmwwZVRveE8yWnBiR3d0Y25Wc1pUcHViMjU2WlhKdk8zTjBjbTlyWlRwdWIyNWxJaUF2UGp4d1lYUm9DaUFnSUNBZ0lDQWdJQ0FnSUNCa1BTSnRJRFk1TUM0NE9UVXNPRFV3TGpjd015QTVNQzQzTlN3d0lESXlMalUwTXl3ek1TNHdNelVnTUN3eU5ETXVNVEl5SUMweE16VXVPREk1TERBZ01Dd3RNalF6TGpFME1TQXlNaTQxTXpZc0xUTXhMakF4TmlJS0lDQWdJQ0FnSUNBZ0lDQWdJR2x1YTNOallYQmxPbU52Ym01bFkzUnZjaTFqZFhKMllYUjFjbVU5SWpBaUNpQWdJQ0FnSUNBZ0lDQWdJQ0JwWkQwaWNHRjBhRE0ySWdvZ0lDQWdJQ0FnSUNBZ0lDQWdjM1I1YkdVOUltWnBiR3c2SXpoaE5ERTRNanRtYVd4c0xXOXdZV05wZEhrNk1UdG1hV3hzTFhKMWJHVTZibTl1ZW1WeWJ6dHpkSEp2YTJVNmJtOXVaU0lnTHo0OGNHRjBhQW9nSUNBZ0lDQWdJQ0FnSUNBZ1pEMGliU0EyTXpJdU16azFMRGMwTWk0eU5UZ2dNamd1TURNNUxEZzJMak13TkNBdE1qSXVOVFV4TERNeExqQTBJQzB5TXpFdU1qSXpMRGMxTGpFeU9DQXROREV1T1RjMkxDMHhNamt1TVRneklESXpNUzR5TlRjc0xUYzFMakV6TnlBek5pNDBOVFFzTVRFdU9EUTRJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2FXNXJjMk5oY0dVNlkyOXVibVZqZEc5eUxXTjFjblpoZEhWeVpUMGlNQ0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbGtQU0p3WVhSb016Z2lDaUFnSUNBZ0lDQWdJQ0FnSUNCemRIbHNaVDBpWm1sc2JEb2pPR0UwTVRneU8yWnBiR3d0YjNCaFkybDBlVG94TzJacGJHd3RjblZzWlRwdWIyNTZaWEp2TzNOMGNtOXJaVHB1YjI1bElpQXZQanh3WVhSb0NpQWdJQ0FnSUNBZ0lDQWdJQ0JrUFNKdElEY3hOeTQwTkRrc05qVXpMakV3TlNBdE56TXVOREVzTlRNdU16WWdMVE0yTGpRNE9Dd3RNVEV1T0RjMUlDMHhOREl1T1RBekxDMHhPVFl1TmpreUlERXdPUzQ0T0RNc0xUYzVMamd5T0NBeE5ESXVPVEU0TERFNU5pNDNNRE1nTUN3ek9DNHpNeklpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnBibXR6WTJGd1pUcGpiMjV1WldOMGIzSXRZM1Z5ZG1GMGRYSmxQU0l3SWdvZ0lDQWdJQ0FnSUNBZ0lDQWdhV1E5SW5CaGRHZzBNQ0lLSUNBZ0lDQWdJQ0FnSUNBZ0lITjBlV3hsUFNKbWFXeHNPaU00WVRReE9ESTdabWxzYkMxdmNHRmphWFI1T2pFN1ptbHNiQzF5ZFd4bE9tNXZibnBsY204N2MzUnliMnRsT201dmJtVWlJQzgrUEhCaGRHZ0tJQ0FnSUNBZ0lDQWdJQ0FnSUdROUltMGdPREk0TGpVeUxEY3dOaTQwTmpVZ0xUY3pMalF5Tml3dE5UTXVNelFnTUM0d01URXNMVE00TGpNMU9TQk1JRGc1T0M0d01EUXNOREU0TGpBM0lERXdNRGN1T1N3ME9UY3VPRGs0SURnMk5DNDVOek1zTmprMExqWXdPU0E0TWpndU5USXNOekEyTGpRMk5TSUtJQ0FnSUNBZ0lDQWdJQ0FnSUdsdWEzTmpZWEJsT21OdmJtNWxZM1J2Y2kxamRYSjJZWFIxY21VOUlqQWlDaUFnSUNBZ0lDQWdJQ0FnSUNCcFpEMGljR0YwYURReUlnb2dJQ0FnSUNBZ0lDQWdJQ0FnYzNSNWJHVTlJbVpwYkd3Nkl6aGhOREU0TWp0bWFXeHNMVzl3WVdOcGRIazZNVHRtYVd4c0xYSjFiR1U2Ym05dWVtVnlienR6ZEhKdmEyVTZibTl1WlNJZ0x6NDhjR0YwYUFvZ0lDQWdJQ0FnSUNBZ0lDQWdaRDBpYlNBNE1USXVNRGcyTERneU9DNDFPRFlnTWpndU1EVTFMQzA0Tmk0ek1pQXpOaTQwT0RRc0xURXhMamd6TmlBeU16RXVNakkxTERjMUxqRXhOeUF0TkRFdU9UY3NNVEk1TGpFNE15QXRNak14TGpJek9Td3ROelV1TVRRZ0xUSXlMalUxTlN3dE16RXVNREEwSWdvZ0lDQWdJQ0FnSUNBZ0lDQWdhVzVyYzJOaGNHVTZZMjl1Ym1WamRHOXlMV04xY25aaGRIVnlaVDBpTUNJS0lDQWdJQ0FnSUNBZ0lDQWdJR2xrUFNKd1lYUm9ORFFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnpkSGxzWlQwaVptbHNiRG9qT0dFME1UZ3lPMlpwYkd3dGIzQmhZMmwwZVRveE8yWnBiR3d0Y25Wc1pUcHViMjU2WlhKdk8zTjBjbTlyWlRwdWIyNWxJaUF2UGp4d1lYUm9DaUFnSUNBZ0lDQWdJQ0FnSUNCa1BTSnRJRGN6Tmk0ek1ERXNNVE16TlM0NE9DQmpJQzB6TWpNdU1EUTNMREFnTFRVNE5TNDROelVzTFRJMk1pNDNPQ0F0TlRnMUxqZzNOU3d0TlRnMUxqYzRNaUF3TEMwek1qTXVNVEU0SURJMk1pNDRNamdzTFRVNE5TNDVOemNnTlRnMUxqZzNOU3d0TlRnMUxqazNOeUF6TWpNdU1ERTVMREFnTlRnMUxqZ3dPU3d5TmpJdU9EVTVJRFU0TlM0NE1Ea3NOVGcxTGprM055QXdMRE15TXk0d01ESWdMVEkyTWk0M09TdzFPRFV1TnpneUlDMDFPRFV1T0RBNUxEVTROUzQzT0RJZ2JDQXdMREFnZWlCdElEQXNMVEV4T0M0Mk1TQmpJREkxTnk0NU56SXNNQ0EwTmpjdU1UZzVMQzB5TURrdU1UTWdORFkzTGpFNE9Td3RORFkzTGpFM01pQXdMQzB5TlRndU1USTVJQzB5TURrdU1qRTNMQzAwTmpjdU16UTRJQzAwTmpjdU1UZzVMQzAwTmpjdU16UTRJQzB5TlRndU1EYzBMREFnTFRRMk55NHlOVFFzTWpBNUxqSXhPU0F0TkRZM0xqSTFOQ3cwTmpjdU16UTRJREFzTWpVNExqQTBNaUF5TURrdU1UZ3NORFkzTGpFM01pQTBOamN1TWpVMExEUTJOeTR4TnpJaUNpQWdJQ0FnSUNBZ0lDQWdJQ0JwYm10elkyRndaVHBqYjI1dVpXTjBiM0l0WTNWeWRtRjBkWEpsUFNJd0lnb2dJQ0FnSUNBZ0lDQWdJQ0FnYVdROUluQmhkR2cwTmlJS0lDQWdJQ0FnSUNBZ0lDQWdJSE4wZVd4bFBTSm1hV3hzT2lNNFlUUXhPREk3Wm1sc2JDMXZjR0ZqYVhSNU9qRTdabWxzYkMxeWRXeGxPbTV2Ym5wbGNtODdjM1J5YjJ0bE9tNXZibVVpSUM4K1BIQmhkR2dLSUNBZ0lDQWdJQ0FnSUNBZ0lHUTlJbTBnTVRBNU1TNHhNeXcyTVRrdU9EZ3pJQzB4TnpVdU56Y3hMRFUzTGpFeU1TQXhNUzQyTWprc016VXVPREE0SURFM05TNDNOaklzTFRVM0xqRXlNU0F0TVRFdU5qSXNMVE0xTGpnd09DSUtJQ0FnSUNBZ0lDQWdJQ0FnSUdsdWEzTmpZWEJsT21OdmJtNWxZM1J2Y2kxamRYSjJZWFIxY21VOUlqQWlDaUFnSUNBZ0lDQWdJQ0FnSUNCcFpEMGljR0YwYURRNElnb2dJQ0FnSUNBZ0lDQWdJQ0FnYzNSNWJHVTlJbVpwYkd3Nkl6aGhOREU0TWp0bWFXeHNMVzl3WVdOcGRIazZNVHRtYVd4c0xYSjFiR1U2Ym05dWVtVnlienR6ZEhKdmEyVTZibTl1WlNJZ0x6NDhjR0YwYUFvZ0lDQWdJQ0FnSUNBZ0lDQWdaRDBpVFNBNE5qWXVPVFUzTERrd01pNHdOelFnT0RNMkxqVXNPVEkwTGpFNU9TQTVORFV1TVRJeExERXdOek11TnpNZ09UYzFMalU0Tml3eE1EVXhMall4SURnMk5pNDVOVGNzT1RBeUxqQTNOQ0lLSUNBZ0lDQWdJQ0FnSUNBZ0lHbHVhM05qWVhCbE9tTnZibTVsWTNSdmNpMWpkWEoyWVhSMWNtVTlJakFpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnBaRDBpY0dGMGFEVXdJZ29nSUNBZ0lDQWdJQ0FnSUNBZ2MzUjViR1U5SW1acGJHdzZJemhoTkRFNE1qdG1hV3hzTFc5d1lXTnBkSGs2TVR0bWFXeHNMWEoxYkdVNmJtOXVlbVZ5Ynp0emRISnZhMlU2Ym05dVpTSWdMejQ4Y0dGMGFBb2dJQ0FnSUNBZ0lDQWdJQ0FnWkQwaVRTQTJNRGN1TkRZMUxEa3dNeTQwTkRVZ05EazRMamcxTlN3eE1EVXlMamszSURVeU9TNHpNaXd4TURjMUxqRWdOak0zTGprekxEa3lOUzQxTmpZZ05qQTNMalEyTlN3NU1ETXVORFExSWdvZ0lDQWdJQ0FnSUNBZ0lDQWdhVzVyYzJOaGNHVTZZMjl1Ym1WamRHOXlMV04xY25aaGRIVnlaVDBpTUNJS0lDQWdJQ0FnSUNBZ0lDQWdJR2xrUFNKd1lYUm9OVElpQ2lBZ0lDQWdJQ0FnSUNBZ0lDQnpkSGxzWlQwaVptbHNiRG9qT0dFME1UZ3lPMlpwYkd3dGIzQmhZMmwwZVRveE8yWnBiR3d0Y25Wc1pUcHViMjU2WlhKdk8zTjBjbTlyWlRwdWIyNWxJaUF2UGp4d1lYUm9DaUFnSUNBZ0lDQWdJQ0FnSUNCa1BTSnRJRE00TUM0Mk9EZ3NOakl5TGpFeU9TQXRNVEV1TmpJMkxETTFMamd3TVNBeE56VXVOelU0TERVM0xqQTVJREV4TGpZeU1Td3RNelV1T0RBeElDMHhOelV1TnpVekxDMDFOeTR3T1NJS0lDQWdJQ0FnSUNBZ0lDQWdJR2x1YTNOallYQmxPbU52Ym01bFkzUnZjaTFqZFhKMllYUjFjbVU5SWpBaUNpQWdJQ0FnSUNBZ0lDQWdJQ0JwWkQwaWNHRjBhRFUwSWdvZ0lDQWdJQ0FnSUNBZ0lDQWdjM1I1YkdVOUltWnBiR3c2SXpoaE5ERTRNanRtYVd4c0xXOXdZV05wZEhrNk1UdG1hV3hzTFhKMWJHVTZibTl1ZW1WeWJ6dHpkSEp2YTJVNmJtOXVaU0lnTHo0OGNHRjBhQW9nSUNBZ0lDQWdJQ0FnSUNBZ1pEMGliU0EzTVRZdU1qZzVMRE0zTmk0MU9TQXpOeTQyTkRBMkxEQWdNQ3d4T0RRdU9ERTJJQzB6Tnk0Mk5EQTJMREFnTUN3dE1UZzBMamd4TmlCNklnb2dJQ0FnSUNBZ0lDQWdJQ0FnYVc1cmMyTmhjR1U2WTI5dWJtVmpkRzl5TFdOMWNuWmhkSFZ5WlQwaU1DSUtJQ0FnSUNBZ0lDQWdJQ0FnSUdsa1BTSndZWFJvTlRZaUNpQWdJQ0FnSUNBZ0lDQWdJQ0J6ZEhsc1pUMGlabWxzYkRvak9HRTBNVGd5TzJacGJHd3RiM0JoWTJsMGVUb3hPMlpwYkd3dGNuVnNaVHB1YjI1NlpYSnZPM04wY205clpUcHViMjVsSWlBdlBqd3ZaejQ4TDJjK1BDOW5Qand2Wno0OEwzTjJaejQ9Jykgbm8tcmVwZWF0LCBub25lOyAtbW96LWJhY2tncm91bmQtc2l6ZTogMTAwJTsgLW8tYmFja2dyb3VuZC1zaXplOiAxMDAlOyAtd2Via2l0LWJhY2tncm91bmQtc2l6ZTogMTAwJTsgYmFja2dyb3VuZC1zaXplOiAxMDAlOyBkaXNwbGF5OiBibG9jazsgZmxvYXQ6IGxlZnQ7IHdpZHRoOiA5MHB4OyBoZWlnaHQ6IDI1cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFubmVyIC52ZXJzaW9uIHsgbWFyZ2luLWxlZnQ6IDE0cHg7IHBvc2l0aW9uOiByZWxhdGl2ZTsgdG9wOiA2cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAjamFzbWluZV9jb250ZW50IHsgcG9zaXRpb246IGZpeGVkOyByaWdodDogMTAwJTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC52ZXJzaW9uIHsgY29sb3I6ICNhYWE7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFubmVyIHsgbWFyZ2luLXRvcDogMTRweDsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5kdXJhdGlvbiB7IGNvbG9yOiAjZmZmOyBmbG9hdDogcmlnaHQ7IGxpbmUtaGVpZ2h0OiAyOHB4OyBwYWRkaW5nLXJpZ2h0OiA5cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3ltYm9sLXN1bW1hcnkgeyBvdmVyZmxvdzogaGlkZGVuOyAqem9vbTogMTsgbWFyZ2luOiAxNHB4IDA7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3ltYm9sLXN1bW1hcnkgbGkgeyBkaXNwbGF5OiBpbmxpbmUtYmxvY2s7IGhlaWdodDogOHB4OyB3aWR0aDogMTRweDsgZm9udC1zaXplOiAxNnB4OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLnBhc3NlZCB7IGZvbnQtc2l6ZTogMTRweDsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5zeW1ib2wtc3VtbWFyeSBsaS5wYXNzZWQ6YmVmb3JlIHsgY29sb3I6ICMwMDcwNjk7IGNvbnRlbnQ6ICJcMDIwMjIiOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLmZhaWxlZCB7IGxpbmUtaGVpZ2h0OiA5cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3ltYm9sLXN1bW1hcnkgbGkuZmFpbGVkOmJlZm9yZSB7IGNvbG9yOiAjY2EzYTExOyBjb250ZW50OiAiXGQ3IjsgZm9udC13ZWlnaHQ6IGJvbGQ7IG1hcmdpbi1sZWZ0OiAtMXB4OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLmRpc2FibGVkIHsgZm9udC1zaXplOiAxNHB4OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLmRpc2FibGVkOmJlZm9yZSB7IGNvbG9yOiAjYmFiYWJhOyBjb250ZW50OiAiXDAyMDIyIjsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5zeW1ib2wtc3VtbWFyeSBsaS5wZW5kaW5nIHsgbGluZS1oZWlnaHQ6IDE3cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3ltYm9sLXN1bW1hcnkgbGkucGVuZGluZzpiZWZvcmUgeyBjb2xvcjogI2JhOWQzNzsgY29udGVudDogIioiOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLmVtcHR5IHsgZm9udC1zaXplOiAxNHB4OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN5bWJvbC1zdW1tYXJ5IGxpLmVtcHR5OmJlZm9yZSB7IGNvbG9yOiAjYmE5ZDM3OyBjb250ZW50OiAiXDAyMDIyIjsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5ydW4tb3B0aW9ucyB7IGZsb2F0OiByaWdodDsgbWFyZ2luLXJpZ2h0OiA1cHg7IGJvcmRlcjogMXB4IHNvbGlkICM4YTQxODI7IGNvbG9yOiAjOGE0MTgyOyBwb3NpdGlvbjogcmVsYXRpdmU7IGxpbmUtaGVpZ2h0OiAyMHB4OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnJ1bi1vcHRpb25zIC50cmlnZ2VyIHsgY3Vyc29yOiBwb2ludGVyOyBwYWRkaW5nOiA4cHggMTZweDsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5ydW4tb3B0aW9ucyAucGF5bG9hZCB7IHBvc2l0aW9uOiBhYnNvbHV0ZTsgZGlzcGxheTogbm9uZTsgcmlnaHQ6IC0xcHg7IGJvcmRlcjogMXB4IHNvbGlkICM4YTQxODI7IGJhY2tncm91bmQtY29sb3I6ICNlZWU7IHdoaXRlLXNwYWNlOiBub3dyYXA7IHBhZGRpbmc6IDRweCA4cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAucnVuLW9wdGlvbnMgLnBheWxvYWQub3BlbiB7IGRpc3BsYXk6IGJsb2NrOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhciB7IGxpbmUtaGVpZ2h0OiAyOHB4OyBmb250LXNpemU6IDE0cHg7IGRpc3BsYXk6IGJsb2NrOyBjb2xvcjogI2VlZTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5iYXIuZmFpbGVkIHsgYmFja2dyb3VuZC1jb2xvcjogI2NhM2ExMTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5iYXIucGFzc2VkIHsgYmFja2dyb3VuZC1jb2xvcjogIzAwNzA2OTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5iYXIuc2tpcHBlZCB7IGJhY2tncm91bmQtY29sb3I6ICNiYWJhYmE7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFyLmVycm9yZWQgeyBiYWNrZ3JvdW5kLWNvbG9yOiAjY2EzYTExOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhci5tZW51IHsgYmFja2dyb3VuZC1jb2xvcjogI2ZmZjsgY29sb3I6ICNhYWE7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuYmFyLm1lbnUgYSB7IGNvbG9yOiAjMzMzOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmJhciBhIHsgY29sb3I6IHdoaXRlOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIuc3BlYy1saXN0IC5iYXIubWVudS5mYWlsdXJlLWxpc3QsIC5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIuc3BlYy1saXN0IC5yZXN1bHRzIC5mYWlsdXJlcyB7IGRpc3BsYXk6IG5vbmU7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlci5mYWlsdXJlLWxpc3QgLmJhci5tZW51LnNwZWMtbGlzdCwgLmphc21pbmVfaHRtbC1yZXBvcnRlci5mYWlsdXJlLWxpc3QgLnN1bW1hcnkgeyBkaXNwbGF5OiBub25lOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnJ1bm5pbmctYWxlcnQgeyBiYWNrZ3JvdW5kLWNvbG9yOiAjNjY2OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnJlc3VsdHMgeyBtYXJnaW4tdG9wOiAxNHB4OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIuc2hvd0RldGFpbHMgLnN1bW1hcnlNZW51SXRlbSB7IGZvbnQtd2VpZ2h0OiBub3JtYWw7IHRleHQtZGVjb3JhdGlvbjogaW5oZXJpdDsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyLnNob3dEZXRhaWxzIC5zdW1tYXJ5TWVudUl0ZW06aG92ZXIgeyB0ZXh0LWRlY29yYXRpb246IHVuZGVybGluZTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyLnNob3dEZXRhaWxzIC5kZXRhaWxzTWVudUl0ZW0geyBmb250LXdlaWdodDogYm9sZDsgdGV4dC1kZWNvcmF0aW9uOiB1bmRlcmxpbmU7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlci5zaG93RGV0YWlscyAuc3VtbWFyeSB7IGRpc3BsYXk6IG5vbmU7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlci5zaG93RGV0YWlscyAjZGV0YWlscyB7IGRpc3BsYXk6IGJsb2NrOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN1bW1hcnlNZW51SXRlbSB7IGZvbnQtd2VpZ2h0OiBib2xkOyB0ZXh0LWRlY29yYXRpb246IHVuZGVybGluZTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdW1tYXJ5IHsgbWFyZ2luLXRvcDogMTRweDsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdW1tYXJ5IHVsIHsgbGlzdC1zdHlsZS10eXBlOiBub25lOyBtYXJnaW4tbGVmdDogMTRweDsgcGFkZGluZy10b3A6IDA7IHBhZGRpbmctbGVmdDogMDsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdW1tYXJ5IHVsLnN1aXRlIHsgbWFyZ2luLXRvcDogN3B4OyBtYXJnaW4tYm90dG9tOiA3cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3VtbWFyeSBsaS5wYXNzZWQgYSB7IGNvbG9yOiAjMDA3MDY5OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN1bW1hcnkgbGkuZmFpbGVkIGEgeyBjb2xvcjogI2NhM2ExMTsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdW1tYXJ5IGxpLmVtcHR5IGEgeyBjb2xvcjogI2JhOWQzNzsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdW1tYXJ5IGxpLnBlbmRpbmcgYSB7IGNvbG9yOiAjYmE5ZDM3OyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnN1bW1hcnkgbGkuZGlzYWJsZWQgYSB7IGNvbG9yOiAjYmFiYWJhOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmRlc2NyaXB0aW9uICsgLnN1aXRlIHsgbWFyZ2luLXRvcDogMDsgfQouamFzbWluZV9odG1sLXJlcG9ydGVyIC5zdWl0ZSB7IG1hcmdpbi10b3A6IDE0cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3VpdGUgYSB7IGNvbG9yOiAjMzMzOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLmZhaWx1cmVzIC5zcGVjLWRldGFpbCB7IG1hcmdpbi1ib3R0b206IDI4cHg7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuZmFpbHVyZXMgLnNwZWMtZGV0YWlsIC5kZXNjcmlwdGlvbiB7IGJhY2tncm91bmQtY29sb3I6ICNjYTNhMTE7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuZmFpbHVyZXMgLnNwZWMtZGV0YWlsIC5kZXNjcmlwdGlvbiBhIHsgY29sb3I6IHdoaXRlOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnJlc3VsdC1tZXNzYWdlIHsgcGFkZGluZy10b3A6IDE0cHg7IGNvbG9yOiAjMzMzOyB3aGl0ZS1zcGFjZTogcHJlOyB9Ci5qYXNtaW5lX2h0bWwtcmVwb3J0ZXIgLnJlc3VsdC1tZXNzYWdlIHNwYW4ucmVzdWx0IHsgZGlzcGxheTogYmxvY2s7IH0KLmphc21pbmVfaHRtbC1yZXBvcnRlciAuc3RhY2stdHJhY2UgeyBtYXJnaW46IDVweCAwIDAgMDsgbWF4LWhlaWdodDogMjI0cHg7IG92ZXJmbG93OiBhdXRvOyBsaW5lLWhlaWdodDogMThweDsgY29sb3I6ICM2NjY7IGJvcmRlcjogMXB4IHNvbGlkICNkZGQ7IGJhY2tncm91bmQ6IHdoaXRlOyB3aGl0ZS1zcGFjZTogcHJlOyB9Cg==");
   document.head.appendChild(link);
-});
-function getJasmineRequireObj(){return"undefined"!=typeof module&&module.exports?exports:(window.jasmineRequire=window.jasmineRequire||{},window.jasmineRequire)}getJasmineRequireObj=function(e){function t(){return n}var n;return"undefined"!=typeof module&&module.exports?(e=global,n=exports):n=e.jasmineRequire=e.jasmineRequire||{},t().core=function(t){var n={};return t.base(n,e),n.util=t.util(),n.Any=t.Any(),n.CallTracker=t.CallTracker(),n.MockDate=t.MockDate(),n.Clock=t.Clock(),n.DelayedFunctionScheduler=t.DelayedFunctionScheduler(),n.Env=t.Env(n),n.ExceptionFormatter=t.ExceptionFormatter(),n.Expectation=t.Expectation(),n.buildExpectationResult=t.buildExpectationResult(),n.JsApiReporter=t.JsApiReporter(),n.matchersUtil=t.matchersUtil(n),n.ObjectContaining=t.ObjectContaining(n),n.pp=t.pp(n),n.QueueRunner=t.QueueRunner(n),n.ReportDispatcher=t.ReportDispatcher(),n.Spec=t.Spec(n),n.SpyRegistry=t.SpyRegistry(n),n.SpyStrategy=t.SpyStrategy(),n.Suite=t.Suite(),n.Timer=t.Timer(),n.version=t.version(),n.matchers=t.requireMatchers(t,n),n},t}(this),getJasmineRequireObj().requireMatchers=function(e,t){for(var n=["toBe","toBeCloseTo","toBeDefined","toBeFalsy","toBeGreaterThan","toBeLessThan","toBeNaN","toBeNull","toBeTruthy","toBeUndefined","toContain","toEqual","toHaveBeenCalled","toHaveBeenCalledWith","toMatch","toThrow","toThrowError"],r={},i=0;i<n.length;i++){var o=n[i];r[o]=e[o](t)}return r},getJasmineRequireObj().base=function(e,t){e.unimplementedMethod_=function(){throw new Error("unimplemented method")},e.MAX_PRETTY_PRINT_DEPTH=40,e.MAX_PRETTY_PRINT_ARRAY_LENGTH=100,e.DEFAULT_TIMEOUT_INTERVAL=5e3,e.getGlobal=function(){return t},e.getEnv=function(t){var n=e.currentEnv_=e.currentEnv_||new e.Env(t);return n},e.isArray_=function(t){return e.isA_("Array",t)},e.isString_=function(t){return e.isA_("String",t)},e.isNumber_=function(t){return e.isA_("Number",t)},e.isA_=function(e,t){return Object.prototype.toString.apply(t)==="[object "+e+"]"},e.isDomNode=function(e){return e.nodeType>0},e.any=function(t){return new e.Any(t)},e.objectContaining=function(t){return new e.ObjectContaining(t)},e.createSpy=function(t,n){var r=new e.SpyStrategy({name:t,fn:n,getSpy:function(){return o}}),i=new e.CallTracker,o=function(){var e={object:this,args:Array.prototype.slice.apply(arguments)};i.track(e);var t=r.exec.apply(this,arguments);return e.returnValue=t,t};for(var s in n){if("and"===s||"calls"===s)throw new Error("Jasmine spies would overwrite the 'and' and 'calls' properties on the object being spied upon");o[s]=n[s]}return o.and=r,o.calls=i,o},e.isSpy=function(t){return t?t.and instanceof e.SpyStrategy&&t.calls instanceof e.CallTracker:!1},e.createSpyObj=function(t,n){if(!e.isArray_(n)||0===n.length)throw"createSpyObj requires a non-empty array of method names to create spies for";for(var r={},i=0;i<n.length;i++)r[n[i]]=e.createSpy(t+"."+n[i]);return r}},getJasmineRequireObj().util=function(){var e={};return e.inherit=function(e,t){var n=function(){};n.prototype=t.prototype,e.prototype=new n},e.htmlEscape=function(e){return e?e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):e},e.argsToArray=function(e){for(var t=[],n=0;n<e.length;n++)t.push(e[n]);return t},e.isUndefined=function(e){return void 0===e},e.arrayContains=function(e,t){for(var n=e.length;n--;)if(e[n]===t)return!0;return!1},e.clone=function(e){if("[object Array]"===Object.prototype.toString.apply(e))return e.slice();var t={};for(var n in e)e.hasOwnProperty(n)&&(t[n]=e[n]);return t},e},getJasmineRequireObj().Spec=function(){function e(e){this.expectationFactory=e.expectationFactory,this.resultCallback=e.resultCallback||function(){},this.id=e.id,this.description=e.description||"",this.queueableFn=e.queueableFn,this.beforeAndAfterFns=e.beforeAndAfterFns||function(){return{befores:[],afters:[]}},this.userContext=e.userContext||function(){return{}},this.onStart=e.onStart||function(){},this.getSpecName=e.getSpecName||function(){return""},this.expectationResultFactory=e.expectationResultFactory||function(){},this.queueRunnerFactory=e.queueRunnerFactory||function(){},this.catchingExceptions=e.catchingExceptions||function(){return!0},this.queueableFn.fn||this.pend(),this.result={id:this.id,description:this.description,fullName:this.getFullName(),failedExpectations:[],passedExpectations:[]}}return e.prototype.addExpectationResult=function(e,t){var n=this.expectationResultFactory(t);e?this.result.passedExpectations.push(n):this.result.failedExpectations.push(n)},e.prototype.expect=function(e){return this.expectationFactory(e,this)},e.prototype.execute=function(e){function t(){n.result.status=n.status(),n.resultCallback(n.result),e&&e()}var n=this;if(this.onStart(this),this.markedPending||this.disabled)return void t();var r=this.beforeAndAfterFns(),i=r.befores.concat(this.queueableFn).concat(r.afters);this.queueRunnerFactory({queueableFns:i,onException:function(){n.onException.apply(n,arguments)},onComplete:t,userContext:this.userContext()})},e.prototype.onException=function(t){return e.isPendingSpecException(t)?void this.pend():void this.addExpectationResult(!1,{matcherName:"",passed:!1,expected:"",actual:"",error:t})},e.prototype.disable=function(){this.disabled=!0},e.prototype.pend=function(){this.markedPending=!0},e.prototype.status=function(){return this.disabled?"disabled":this.markedPending?"pending":this.result.failedExpectations.length>0?"failed":"passed"},e.prototype.isExecutable=function(){return!this.disabled&&!this.markedPending},e.prototype.getFullName=function(){return this.getSpecName(this)},e.pendingSpecExceptionMessage="=> marked Pending",e.isPendingSpecException=function(t){return!(!t||!t.toString||-1===t.toString().indexOf(e.pendingSpecExceptionMessage))},e},void 0==typeof window&&"object"==typeof exports&&(exports.Spec=jasmineRequire.Spec),getJasmineRequireObj().Env=function(e){function t(t){function n(e){k++,k>=O?(k=0,l(e,0)):e()}function r(e,t){var n=g;n.addChild(e),g=e;var r=null;try{t.call(e)}catch(i){r=i}r&&s.it("encountered a declaration exception",function(){throw r}),g=n}function i(e){for(;e;){if(e.isFocused)return e.id;e=e.parentSuite}return null}function o(){var e=i(g);if(e)for(var t=0;t<L.length;t++)if(L[t]===e){L.splice(t,1);break}}t=t||{};var s=this,a=t.global||e.getGlobal(),u=0,c=!0,l=e.getGlobal().setTimeout,p=e.getGlobal().clearTimeout;this.clock=new e.Clock(a,new e.DelayedFunctionScheduler,new e.MockDate(a));var f={},h={},d=null,m=[],g=null,y=function(){return m[m.length-1]},v=function(){return d||y()},b=new e.ReportDispatcher(["jasmineStarted","jasmineDone","suiteStarted","suiteDone","specStarted","specDone"]);this.specFilter=function(){return!0},this.addCustomEqualityTester=function(e){if(!v())throw new Error("Custom Equalities must be added in a before function or a spec");h[v().id].customEqualityTesters.push(e)},this.addMatchers=function(e){if(!v())throw new Error("Matchers must be added in a before function or a spec");var t=h[v().id].customMatchers;for(var n in e)t[n]=e[n]},e.Expectation.addCoreMatchers(e.matchers);var E=0,x=function(){return"spec"+E++},w=0,S=function(){return"suite"+w++},R=function(t,n){function r(e,t){return n.addExpectationResult(e,t)}return e.Expectation.Factory({util:e.matchersUtil,customEqualityTesters:h[n.id].customEqualityTesters,customMatchers:h[n.id].customMatchers,actual:t,addExpectationResult:r})},j=function(t,n){var r={spies:[],customEqualityTesters:[],customMatchers:{}};h[n]&&(r.customEqualityTesters=e.util.clone(h[n].customEqualityTesters),r.customMatchers=e.util.clone(h[n].customMatchers)),h[t]=r},T=function(e){J.clearSpies(),delete h[e]},F=function(e,t){return function(){for(var n=[],r=[],i=[],o=[];e;)n=n.concat(e.beforeFns),r=r.concat(e.afterFns),t()&&(i=i.concat(e.beforeAllFns),o=o.concat(e.afterAllFns)),e=e.parentSuite;return{befores:i.reverse().concat(n.reverse()),afters:r.concat(o)}}},C=function(e,t){return t.getFullName()+" "+e.description},N=e.buildExpectationResult,A=new e.ExceptionFormatter,q=function(e){return e.messageFormatter=A.message,e.stackFormatter=A.stack,N(e)};this.catchExceptions=function(e){return c=!!e},this.catchingExceptions=function(){return c};var O=20,k=0,_=function(t){return e.Spec.isPendingSpecException(t)||c},M=function(t){t.catchException=_,t.clearStack=t.clearStack||n,t.timer={setTimeout:l,clearTimeout:p},t.fail=s.fail,new e.QueueRunner(t).execute()},D=new e.Suite({env:this,id:S(),description:"Jasmine__TopLevel__Suite",queueRunner:M});f[D.id]=D,j(D.id),g=D,this.topSuite=function(){return D},this.execute=function(e){e?U=!0:L.length?(U=!0,e=L):e=[D.id];for(var t=[],n=0;n<e.length;n++){var r=f[e[n]];t.push(function(e){return{fn:function(t){e.execute(t)}}}(r))}b.jasmineStarted({totalSpecsDefined:u}),M({queueableFns:t,onComplete:b.jasmineDone})},this.addReporter=function(e){b.addReporter(e)};var J=new e.SpyRegistry({currentSpies:function(){if(!v())throw new Error("Spies must be created in a before function or a spec");return h[v().id].spies}});this.spyOn=function(){return J.spyOn.apply(J,arguments)};var I=function(t){function n(e){m.push(e),j(e.id,e.parentSuite.id),b.suiteStarted(e.result)}var r=new e.Suite({env:s,id:S(),description:t,parentSuite:g,queueRunner:M,onStart:n,expectationFactory:R,expectationResultFactory:q,resultCallback:function(e){r.disabled||(T(r.id),m.pop()),b.suiteDone(e)}});return f[r.id]=r,r};this.describe=function(e,t){var n=I(e);return r(n,t),n},this.xdescribe=function(e,t){var n=this.describe(e,t);return n.disable(),n};var L=[];this.fdescribe=function(e,t){var n=I(e);return n.isFocused=!0,L.push(n.id),o(),r(n,t),n};var U=!1,P=function(){return U},B=function(t,n,r,i){function o(e){T(c.id),d=null,b.specDone(e)}function a(e){d=e,j(e.id,r.id),b.specStarted(e.result)}u++;var c=new e.Spec({id:x(),beforeAndAfterFns:F(r,P),expectationFactory:R,resultCallback:o,getSpecName:function(e){return C(e,r)},onStart:a,description:t,expectationResultFactory:q,queueRunnerFactory:M,userContext:function(){return r.clonedSharedUserContext()},queueableFn:{fn:n,timeout:function(){return i||e.DEFAULT_TIMEOUT_INTERVAL}}});return f[c.id]=c,s.specFilter(c)||c.disable(),c};this.it=function(e,t,n){var r=B(e,t,g,n);return g.addChild(r),r},this.xit=function(){var e=this.it.apply(this,arguments);return e.pend(),e},this.fit=function(){var e=this.it.apply(this,arguments);return L.push(e.id),o(),e},this.expect=function(e){if(!v())throw new Error("'expect' was used when there was no current spec, this could be because an asynchronous test timed out");return v().expect(e)},this.beforeEach=function(t,n){g.beforeEach({fn:t,timeout:function(){return n||e.DEFAULT_TIMEOUT_INTERVAL}})},this.beforeAll=function(t,n){g.beforeAll({fn:t,timeout:function(){return n||e.DEFAULT_TIMEOUT_INTERVAL}})},this.afterEach=function(t,n){g.afterEach({fn:t,timeout:function(){return n||e.DEFAULT_TIMEOUT_INTERVAL}})},this.afterAll=function(t,n){g.afterAll({fn:t,timeout:function(){return n||e.DEFAULT_TIMEOUT_INTERVAL}})},this.pending=function(){throw e.Spec.pendingSpecExceptionMessage},this.fail=function(e){var t="Failed";e&&(t+=": ",t+=e.message||e),v().addExpectationResult(!1,{matcherName:"",passed:!1,expected:"",actual:"",message:t})}}return t},getJasmineRequireObj().JsApiReporter=function(){function e(e){function n(e){s.push(e),a[e.id]=e}var r=e.timer||t,i="loaded";this.started=!1,this.finished=!1,this.jasmineStarted=function(){this.started=!0,i="started",r.start()};var o;this.jasmineDone=function(){this.finished=!0,o=r.elapsed(),i="done"},this.status=function(){return i};var s=[],a={};this.suiteStarted=function(e){a[e.id]=e},this.suiteDone=function(e){n(e)},this.suiteResults=function(e,t){return s.slice(e,e+t)},this.suites=function(){return a};var u=[];this.specDone=function(e){u.push(e)},this.specResults=function(e,t){return u.slice(e,e+t)},this.specs=function(){return u},this.executionTime=function(){return o}}var t={start:function(){},elapsed:function(){return 0}};return e},getJasmineRequireObj().Any=function(){function e(e){this.expectedObject=e}return e.prototype.jasmineMatches=function(e){return this.expectedObject==String?"string"==typeof e||e instanceof String:this.expectedObject==Number?"number"==typeof e||e instanceof Number:this.expectedObject==Function?"function"==typeof e||e instanceof Function:this.expectedObject==Object?"object"==typeof e:this.expectedObject==Boolean?"boolean"==typeof e:e instanceof this.expectedObject},e.prototype.jasmineToString=function(){return"<jasmine.any("+this.expectedObject+")>"},e},getJasmineRequireObj().CallTracker=function(){function e(){var e=[];this.track=function(t){e.push(t)},this.any=function(){return!!e.length},this.count=function(){return e.length},this.argsFor=function(t){var n=e[t];return n?n.args:[]},this.all=function(){return e},this.allArgs=function(){for(var t=[],n=0;n<e.length;n++)t.push(e[n].args);return t},this.first=function(){return e[0]},this.mostRecent=function(){return e[e.length-1]},this.reset=function(){e=[]}}return e},getJasmineRequireObj().Clock=function(){function e(e,t,n){function r(){return!(f.setTimeout||f.setInterval).apply}function i(e,t){for(var n in t)e[n]=t[n]}function o(e,n){return t.scheduleFunction(e,n,c(arguments,2))}function s(e){return t.removeFunctionWithId(e)}function a(e,n){return t.scheduleFunction(e,n,c(arguments,2),!0)}function u(e){return t.removeFunctionWithId(e)}function c(e,t){return Array.prototype.slice.call(e,t)}var l,p=this,f={setTimeout:e.setTimeout,clearTimeout:e.clearTimeout,setInterval:e.setInterval,clearInterval:e.clearInterval},h={setTimeout:o,clearTimeout:s,setInterval:a,clearInterval:u},d=!1;return p.install=function(){return i(e,h),l=h,d=!0,p},p.uninstall=function(){t.reset(),n.uninstall(),i(e,f),l=f,d=!1},p.mockDate=function(e){n.install(e)},p.setTimeout=function(t,n){if(r()){if(arguments.length>2)throw new Error("IE < 9 cannot support extra params to setTimeout without a polyfill");return l.setTimeout(t,n)}return Function.prototype.apply.apply(l.setTimeout,[e,arguments])},p.setInterval=function(t,n){if(r()){if(arguments.length>2)throw new Error("IE < 9 cannot support extra params to setInterval without a polyfill");return l.setInterval(t,n)}return Function.prototype.apply.apply(l.setInterval,[e,arguments])},p.clearTimeout=function(t){return Function.prototype.call.apply(l.clearTimeout,[e,t])},p.clearInterval=function(t){return Function.prototype.call.apply(l.clearInterval,[e,t])},p.tick=function(e){if(!d)throw new Error("Mock clock is not installed, use jasmine.clock().install()");n.tick(e),t.tick(e)},p}return e},getJasmineRequireObj().DelayedFunctionScheduler=function(){function DelayedFunctionScheduler(){function indexOfFirstToPass(e,t){for(var n=-1,r=0;r<e.length;++r)if(t(e[r])){n=r;break}return n}function deleteFromLookup(e){var t=Number(e),n=indexOfFirstToPass(scheduledLookup,function(e){return e===t});n>-1&&scheduledLookup.splice(n,1)}function reschedule(e){self.scheduleFunction(e.funcToCall,e.millis,e.params,!0,e.timeoutKey,e.runAtMillis+e.millis)}function runScheduledFunctions(e){if(!(0===scheduledLookup.length||scheduledLookup[0]>e))do{currentTime=scheduledLookup.shift();var t=scheduledFunctions[currentTime];delete scheduledFunctions[currentTime];for(var n=0;n<t.length;++n){var r=t[n];r.recurring&&reschedule(r),r.funcToCall.apply(null,r.params||[])}}while(scheduledLookup.length>0&&currentTime!==e&&scheduledLookup[0]<=e)}var self=this,scheduledLookup=[],scheduledFunctions={},currentTime=0,delayedFnCount=0;return self.tick=function(e){e=e||0;var t=currentTime+e;runScheduledFunctions(t),currentTime=t},self.scheduleFunction=function(funcToCall,millis,params,recurring,timeoutKey,runAtMillis){var f;f="string"==typeof funcToCall?function(){return eval(funcToCall)}:funcToCall,millis=millis||0,timeoutKey=timeoutKey||++delayedFnCount,runAtMillis=runAtMillis||currentTime+millis;var funcToSchedule={runAtMillis:runAtMillis,funcToCall:f,recurring:recurring,params:params,timeoutKey:timeoutKey,millis:millis};return runAtMillis in scheduledFunctions?scheduledFunctions[runAtMillis].push(funcToSchedule):(scheduledFunctions[runAtMillis]=[funcToSchedule],scheduledLookup.push(runAtMillis),scheduledLookup.sort(function(e,t){return e-t})),timeoutKey},self.removeFunctionWithId=function(e){for(var t in scheduledFunctions){var n=scheduledFunctions[t],r=indexOfFirstToPass(n,function(t){return t.timeoutKey===e});if(r>-1){1===n.length?(delete scheduledFunctions[t],deleteFromLookup(t)):n.splice(r,1);break}}},self.reset=function(){currentTime=0,scheduledLookup=[],scheduledFunctions={},delayedFnCount=0},self}return DelayedFunctionScheduler},getJasmineRequireObj().ExceptionFormatter=function(){function e(){this.message=function(e){var t="";return t+=e.name&&e.message?e.name+": "+e.message:e.toString()+" thrown",(e.fileName||e.sourceURL)&&(t+=" in "+(e.fileName||e.sourceURL)),(e.line||e.lineNumber)&&(t+=" (line "+(e.line||e.lineNumber)+")"),t},this.stack=function(e){return e?e.stack:null}}return e},getJasmineRequireObj().Expectation=function(){function e(t){this.util=t.util||{buildFailureMessage:function(){}},this.customEqualityTesters=t.customEqualityTesters||[],this.actual=t.actual,this.addExpectationResult=t.addExpectationResult||function(){},this.isNot=t.isNot;var n=t.customMatchers||{};for(var r in n)this[r]=e.prototype.wrapCompare(r,n[r])}return e.prototype.wrapCompare=function(e,t){return function(){function n(){var e=s.compare.apply(null,r);return e.pass=!e.pass,e}var r=Array.prototype.slice.call(arguments,0),i=r.slice(0),o="";r.unshift(this.actual);var s=t(this.util,this.customEqualityTesters),a=s.compare;this.isNot&&(a=s.negativeCompare||n);var u=a.apply(null,r);u.pass||(u.message?o="[object Function]"===Object.prototype.toString.apply(u.message)?u.message():u.message:(r.unshift(this.isNot),r.unshift(e),o=this.util.buildFailureMessage.apply(null,r))),1==i.length&&(i=i[0]),this.addExpectationResult(u.pass,{matcherName:e,passed:u.pass,message:o,actual:this.actual,expected:i})}},e.addCoreMatchers=function(t){var n=e.prototype;for(var r in t){var i=t[r];n[r]=n.wrapCompare(r,i)}},e.Factory=function(t){t=t||{};var n=new e(t);return t.isNot=!0,n.not=new e(t),n},e},getJasmineRequireObj().buildExpectationResult=function(){function e(e){function t(){return e.passed?"Passed.":e.message?e.message:e.error?r(e.error):""}function n(){if(e.passed)return"";var n=e.error;if(!n)try{throw new Error(t())}catch(r){n=r}return i(n)}var r=e.messageFormatter||function(){},i=e.stackFormatter||function(){},o={matcherName:e.matcherName,message:t(),stack:n(),passed:e.passed};return o.passed||(o.expected=e.expected,o.actual=e.actual),o}return e},getJasmineRequireObj().MockDate=function(){function e(e){function t(){switch(arguments.length){case 0:return new o(i);case 1:return new o(arguments[0]);case 2:return new o(arguments[0],arguments[1]);case 3:return new o(arguments[0],arguments[1],arguments[2]);case 4:return new o(arguments[0],arguments[1],arguments[2],arguments[3]);case 5:return new o(arguments[0],arguments[1],arguments[2],arguments[3],arguments[4]);case 6:return new o(arguments[0],arguments[1],arguments[2],arguments[3],arguments[4],arguments[5]);case 7:return new o(arguments[0],arguments[1],arguments[2],arguments[3],arguments[4],arguments[5],arguments[6])}}function n(){t.prototype=o.prototype,t.now=function(){if(o.now)return i;throw new Error("Browser does not support Date.now()")},t.toSource=o.toSource,t.toString=o.toString,t.parse=o.parse,t.UTC=o.UTC}var r=this,i=0;if(!e||!e.Date)return r.install=function(){},r.tick=function(){},r.uninstall=function(){},r;var o=e.Date;return r.install=function(n){i=n instanceof o?n.getTime():(new o).getTime(),e.Date=t},r.tick=function(e){e=e||0,i+=e},r.uninstall=function(){i=0,e.Date=o},n(),r}return e},getJasmineRequireObj().ObjectContaining=function(e){function t(e){this.sample=e}return t.prototype.jasmineMatches=function(t,n,r){if("object"!=typeof this.sample)throw new Error("You must provide an object to objectContaining, not '"+this.sample+"'.");n=n||[],r=r||[];var i=function(t,n){return null!==t&&!e.util.isUndefined(t[n])};for(var o in this.sample)!i(t,o)&&i(this.sample,o)?n.push("expected has key '"+o+"', but missing from actual."):e.matchersUtil.equals(t[o],this.sample[o])||r.push("'"+o+"' was '"+(t[o]?e.util.htmlEscape(t[o].toString()):t[o])+"' in actual, but was '"+(this.sample[o]?e.util.htmlEscape(this.sample[o].toString()):this.sample[o])+"' in expected.");return 0===n.length&&0===r.length},t.prototype.jasmineToString=function(){return"<jasmine.objectContaining("+e.pp(this.sample)+")>"},t},getJasmineRequireObj().pp=function(e){function t(){this.ppNestLevel_=0,this.seen=[]}function n(){t.call(this),this.string=""}return t.prototype.format=function(t){this.ppNestLevel_++;try{e.util.isUndefined(t)?this.emitScalar("undefined"):null===t?this.emitScalar("null"):0===t&&1/t===-1/0?this.emitScalar("-0"):t===e.getGlobal()?this.emitScalar("<global>"):t.jasmineToString?this.emitScalar(t.jasmineToString()):"string"==typeof t?this.emitString(t):e.isSpy(t)?this.emitScalar("spy on "+t.and.identity()):t instanceof RegExp?this.emitScalar(t.toString()):"function"==typeof t?this.emitScalar("Function"):"number"==typeof t.nodeType?this.emitScalar("HTMLNode"):t instanceof Date?this.emitScalar("Date("+t+")"):e.util.arrayContains(this.seen,t)?this.emitScalar("<circular reference: "+(e.isArray_(t)?"Array":"Object")+">"):e.isArray_(t)||e.isA_("Object",t)?(this.seen.push(t),e.isArray_(t)?this.emitArray(t):this.emitObject(t),this.seen.pop()):this.emitScalar(t.toString())}finally{this.ppNestLevel_--}},t.prototype.iterateObject=function(t,n){for(var r in t)Object.prototype.hasOwnProperty.call(t,r)&&n(r,t.__lookupGetter__?!e.util.isUndefined(t.__lookupGetter__(r))&&null!==t.__lookupGetter__(r):!1)},t.prototype.emitArray=e.unimplementedMethod_,t.prototype.emitObject=e.unimplementedMethod_,t.prototype.emitScalar=e.unimplementedMethod_,t.prototype.emitString=e.unimplementedMethod_,e.util.inherit(n,t),n.prototype.emitScalar=function(e){this.append(e)},n.prototype.emitString=function(e){this.append("'"+e+"'")},n.prototype.emitArray=function(t){if(this.ppNestLevel_>e.MAX_PRETTY_PRINT_DEPTH)return void this.append("Array");var n=Math.min(t.length,e.MAX_PRETTY_PRINT_ARRAY_LENGTH);this.append("[ ");for(var r=0;n>r;r++)r>0&&this.append(", "),this.format(t[r]);t.length>n&&this.append(", ..."),this.append(" ]")},n.prototype.emitObject=function(t){if(this.ppNestLevel_>e.MAX_PRETTY_PRINT_DEPTH)return void this.append("Object");var n=this;this.append("{ ");var r=!0;this.iterateObject(t,function(e,i){r?r=!1:n.append(", "),n.append(e),n.append(": "),i?n.append("<getter>"):n.format(t[e])}),this.append(" }")},n.prototype.append=function(e){this.string+=e},function(e){var t=new n;return t.format(e),t.string}},getJasmineRequireObj().QueueRunner=function(e){function t(e){var t=!1;return function(){t||(t=!0,e())}}function n(e){this.queueableFns=e.queueableFns||[],this.onComplete=e.onComplete||function(){},this.clearStack=e.clearStack||function(e){e()},this.onException=e.onException||function(){},this.catchException=e.catchException||function(){return!0},this.userContext=e.userContext||{},this.timer=e.timeout||{setTimeout:setTimeout,clearTimeout:clearTimeout},this.fail=e.fail||function(){}}return n.prototype.execute=function(){this.run(this.queueableFns,0)},n.prototype.run=function(n,r){function i(e){try{e.fn.call(l.userContext)}catch(t){a(t,e)}}function o(r){var i,o=function(){Function.prototype.apply.apply(l.timer.clearTimeout,[e.getGlobal(),[i]])},c=t(function(){o(i),l.run(n,u+1)});c.fail=function(){l.fail.apply(null,arguments),c()},r.timeout&&(i=Function.prototype.apply.apply(l.timer.setTimeout,[e.getGlobal(),[function(){var e=new Error("Timeout - Async callback was not invoked within timeout specified by jasmine.DEFAULT_TIMEOUT_INTERVAL.");s(e,r),c()},r.timeout()]]));try{r.fn.call(l.userContext,c)}catch(p){a(p,r),c()}}function s(e){l.onException(e)}function a(e,t){if(s(e,t),!l.catchException(e))throw e}var u,c=n.length,l=this;for(u=r;c>u;u++){var p=n[u];if(p.fn.length>0)return o(p);i(p)}var f=u>=c;f&&this.clearStack(this.onComplete)},n},getJasmineRequireObj().ReportDispatcher=function(){function e(e){function t(e,t){for(var n=0;n<o.length;n++){var r=o[n];r[e]&&r[e].apply(r,t)}}for(var n=e||[],r=0;r<n.length;r++){var i=n[r];this[i]=function(e){return function(){t(e,arguments)}}(i)}var o=[];return this.addReporter=function(e){o.push(e)},this}return e},getJasmineRequireObj().SpyRegistry=function(e){function t(t){t=t||{};var n=t.currentSpies||function(){return[]};this.spyOn=function(t,r){if(e.util.isUndefined(t))throw new Error("spyOn could not find an object to spy upon for "+r+"()");if(e.util.isUndefined(t[r]))throw new Error(r+"() method does not exist");if(t[r]&&e.isSpy(t[r]))throw new Error(r+" has already been spied upon");var i=e.createSpy(r,t[r]);return n().push({spy:i,baseObj:t,methodName:r,originalValue:t[r]}),t[r]=i,i},this.clearSpies=function(){for(var e=n(),t=0;t<e.length;t++){var r=e[t];r.baseObj[r.methodName]=r.originalValue}}}return t},getJasmineRequireObj().SpyStrategy=function(){function e(e){e=e||{};var t=e.name||"unknown",n=e.fn||function(){},r=e.getSpy||function(){},i=function(){};this.identity=function(){return t},this.exec=function(){return i.apply(this,arguments)},this.callThrough=function(){return i=n,r()},this.returnValue=function(e){return i=function(){return e},r()},this.returnValues=function(){var e=Array.prototype.slice.call(arguments);return i=function(){return e.shift()},r()},this.throwError=function(e){var t=e instanceof Error?e:new Error(e);return i=function(){throw t},r()},this.callFake=function(e){return i=e,r()},this.stub=function(){return i=function(){},r()}}return e},getJasmineRequireObj().Suite=function(){function e(e){this.env=e.env,this.id=e.id,this.parentSuite=e.parentSuite,this.description=e.description,this.onStart=e.onStart||function(){},this.resultCallback=e.resultCallback||function(){},this.clearStack=e.clearStack||function(e){e()},this.expectationFactory=e.expectationFactory,this.expectationResultFactory=e.expectationResultFactory,this.beforeFns=[],this.afterFns=[],this.beforeAllFns=[],this.afterAllFns=[],this.queueRunner=e.queueRunner||function(){},this.disabled=!1,this.children=[],this.result={id:this.id,description:this.description,fullName:this.getFullName(),failedExpectations:[]}}function t(e){return e&&e[0].result.status}function n(e){return!e[0]}function r(e){var t={};for(var n in e)e.hasOwnProperty(n)&&(t[n]=e[n]);return t}return e.prototype.expect=function(e){return this.expectationFactory(e,this)},e.prototype.getFullName=function(){for(var e=this.description,t=this.parentSuite;t;t=t.parentSuite)t.parentSuite&&(e=t.description+" "+e);return e},e.prototype.disable=function(){this.disabled=!0},e.prototype.beforeEach=function(e){this.beforeFns.unshift(e)},e.prototype.beforeAll=function(e){this.beforeAllFns.push(e)},e.prototype.afterEach=function(e){this.afterFns.unshift(e)},e.prototype.afterAll=function(e){this.afterAllFns.push(e)},e.prototype.addChild=function(e){this.children.push(e)},e.prototype.status=function(){return this.disabled?"disabled":this.result.failedExpectations.length>0?"failed":"finished"},e.prototype.execute=function(e){function t(){r.result.status=r.status(),r.resultCallback(r.result),e&&e()}function n(e){return{fn:function(t){e.execute(t)}}}var r=this;if(this.onStart(this),this.disabled)return void t();for(var i=[],o=0;o<this.children.length;o++)i.push(n(this.children[o]));this.isExecutable()&&(i=this.beforeAllFns.concat(i),i=i.concat(this.afterAllFns)),this.queueRunner({queueableFns:i,onComplete:t,userContext:this.sharedUserContext(),onException:function(){r.onException.apply(r,arguments)}})},e.prototype.isExecutable=function(){for(var e=!1,t=0;t<this.children.length;t++)if(this.children[t].isExecutable()){e=!0;break}return e},e.prototype.sharedUserContext=function(){return this.sharedContext||(this.sharedContext=this.parentSuite?r(this.parentSuite.sharedUserContext()):{}),this.sharedContext},e.prototype.clonedSharedUserContext=function(){return r(this.sharedUserContext())},e.prototype.onException=function(){if(t(this.children)){var e={matcherName:"",passed:!1,expected:"",actual:"",error:arguments[0]};this.result.failedExpectations.push(this.expectationResultFactory(e))}else for(var n=0;n<this.children.length;n++){var r=this.children[n];r.onException.apply(r,arguments)}},e.prototype.addExpectationResult=function(){if(t(this.children)&&n(arguments)){var e=arguments[1];this.result.failedExpectations.push(this.expectationResultFactory(e))}else for(var r=0;r<this.children.length;r++){var i=this.children[r];i.addExpectationResult.apply(i,arguments)}},e},void 0==typeof window&&"object"==typeof exports&&(exports.Suite=jasmineRequire.Suite),getJasmineRequireObj().Timer=function(){function e(e){e=e||{};var n,r=e.now||t;this.start=function(){n=r()},this.elapsed=function(){return r()-n}}var t=function(e){return function(){return(new e).getTime()}}(Date);return e},getJasmineRequireObj().matchersUtil=function(e){function t(n,r,i,o,s){function a(e,t){return e.hasOwnProperty(t)}function u(e){return"function"==typeof e}for(var c=!0,l=0;l<s.length;l++){var p=s[l](n,r);if(!e.util.isUndefined(p))return p}if(n instanceof e.Any&&(c=n.jasmineMatches(r)))return!0;if(r instanceof e.Any&&(c=r.jasmineMatches(n)))return!0;if(r instanceof e.ObjectContaining&&(c=r.jasmineMatches(n)))return!0;if(n instanceof Error&&r instanceof Error)return n.message==r.message;if(n===r)return 0!==n||1/n==1/r;if(null===n||null===r)return n===r;var f=Object.prototype.toString.call(n);if(f!=Object.prototype.toString.call(r))return!1;switch(f){case"[object String]":return n==String(r);case"[object Number]":return n!=+n?r!=+r:0===n?1/n==1/r:n==+r;case"[object Date]":case"[object Boolean]":return+n==+r;case"[object RegExp]":return n.source==r.source&&n.global==r.global&&n.multiline==r.multiline&&n.ignoreCase==r.ignoreCase}if("object"!=typeof n||"object"!=typeof r)return!1;for(var h=i.length;h--;)if(i[h]==n)return o[h]==r;i.push(n),o.push(r);var d=0;if("[object Array]"==f){if(d=n.length,c=d==r.length)for(;d--&&(c=t(n[d],r[d],i,o,s)););}else{var m=n.constructor,g=r.constructor;if(m!==g&&!(u(m)&&m instanceof m&&u(g)&&g instanceof g))return!1;for(var y in n)if(a(n,y)&&(d++,!(c=a(r,y)&&t(n[y],r[y],i,o,s))))break;if(c){for(y in r)if(a(r,y)&&!d--)break;c=!d}}return i.pop(),o.pop(),c}return{equals:function(e,n,r){return r=r||[],t(e,n,[],[],r)},contains:function(e,n,r){if(r=r||[],"[object Array]"===Object.prototype.toString.apply(e)||e&&!e.indexOf){for(var i=0;i<e.length;i++)if(t(e[i],n,[],[],r))return!0;return!1}return!!e&&e.indexOf(n)>=0},buildFailureMessage:function(){var t=Array.prototype.slice.call(arguments,0),n=t[0],r=t[1],i=t[2],o=t.slice(3),s=n.replace(/[A-Z]/g,function(e){return" "+e.toLowerCase()}),a="Expected "+e.pp(i)+(r?" not ":" ")+s;if(o.length>0)for(var u=0;u<o.length;u++)u>0&&(a+=","),a+=" "+e.pp(o[u]);return a+"."}}},getJasmineRequireObj().toBe=function(){function e(){return{compare:function(e,t){return{pass:e===t}}}}return e},getJasmineRequireObj().toBeCloseTo=function(){function e(){return{compare:function(e,t,n){return 0!==n&&(n=n||2),{pass:Math.abs(t-e)<Math.pow(10,-n)/2}}}}return e},getJasmineRequireObj().toBeDefined=function(){function e(){return{compare:function(e){return{pass:void 0!==e}}}}return e},getJasmineRequireObj().toBeFalsy=function(){function e(){return{compare:function(e){return{pass:!e}}}}return e},getJasmineRequireObj().toBeGreaterThan=function(){function e(){return{compare:function(e,t){return{pass:e>t}}}}return e},getJasmineRequireObj().toBeLessThan=function(){function e(){return{compare:function(e,t){return{pass:t>e}}}}return e},getJasmineRequireObj().toBeNaN=function(e){function t(){return{compare:function(t){var n={pass:t!==t};return n.message=n.pass?"Expected actual not to be NaN.":function(){return"Expected "+e.pp(t)+" to be NaN."},n}}}return t},getJasmineRequireObj().toBeNull=function(){function e(){return{compare:function(e){return{pass:null===e}}}
-}return e},getJasmineRequireObj().toBeTruthy=function(){function e(){return{compare:function(e){return{pass:!!e}}}}return e},getJasmineRequireObj().toBeUndefined=function(){function e(){return{compare:function(e){return{pass:void 0===e}}}}return e},getJasmineRequireObj().toContain=function(){function e(e,t){return t=t||[],{compare:function(n,r){return{pass:e.contains(n,r,t)}}}}return e},getJasmineRequireObj().toEqual=function(){function e(e,t){return t=t||[],{compare:function(n,r){var i={pass:!1};return i.pass=e.equals(n,r,t),i}}}return e},getJasmineRequireObj().toHaveBeenCalled=function(e){function t(){return{compare:function(t){var n={};if(!e.isSpy(t))throw new Error("Expected a spy, but got "+e.pp(t)+".");if(arguments.length>1)throw new Error("toHaveBeenCalled does not take arguments, use toHaveBeenCalledWith");return n.pass=t.calls.any(),n.message=n.pass?"Expected spy "+t.and.identity()+" not to have been called.":"Expected spy "+t.and.identity()+" to have been called.",n}}}return t},getJasmineRequireObj().toHaveBeenCalledWith=function(e){function t(t,n){return{compare:function(){var r=Array.prototype.slice.call(arguments,0),i=r[0],o=r.slice(1),s={pass:!1};if(!e.isSpy(i))throw new Error("Expected a spy, but got "+e.pp(i)+".");return i.calls.any()?(t.contains(i.calls.allArgs(),o,n)?(s.pass=!0,s.message=function(){return"Expected spy "+i.and.identity()+" not to have been called with "+e.pp(o)+" but it was."}):s.message=function(){return"Expected spy "+i.and.identity()+" to have been called with "+e.pp(o)+" but actual calls were "+e.pp(i.calls.allArgs()).replace(/^\[ | \]$/g,"")+"."},s):(s.message=function(){return"Expected spy "+i.and.identity()+" to have been called with "+e.pp(o)+" but it was never called."},s)}}}return t},getJasmineRequireObj().toMatch=function(){function e(){return{compare:function(e,t){var n=new RegExp(t);return{pass:n.test(e)}}}}return e},getJasmineRequireObj().toThrow=function(e){function t(t){return{compare:function(n,r){var i,o={pass:!1},s=!1;if("function"!=typeof n)throw new Error("Actual is not a Function");try{n()}catch(a){s=!0,i=a}return s?1==arguments.length?(o.pass=!0,o.message=function(){return"Expected function not to throw, but it threw "+e.pp(i)+"."},o):(t.equals(i,r)?(o.pass=!0,o.message=function(){return"Expected function not to throw "+e.pp(r)+"."}):o.message=function(){return"Expected function to throw "+e.pp(r)+", but it threw "+e.pp(i)+"."},o):(o.message="Expected function to throw an exception.",o)}}}return t},getJasmineRequireObj().toThrowError=function(e){function t(){function t(){function t(e){return"string"==typeof o?o==e:o.test(e)}var o=null,s=null;if(2==arguments.length)o=arguments[1],i(o)&&(s=o,o=null);else if(arguments.length>2&&(s=arguments[1],o=arguments[2],!i(s)))throw new Error("Expected error type is not an Error.");if(o&&!r(o))throw new Error(s?"Expected error message is not a string or RegExp.":"Expected is not an Error, string, or RegExp.");return{errorTypeDescription:s?n(s):"an exception",thrownDescription:function(t){var r=s?n(t.constructor):"an exception",i="";return o&&(i=" with message "+e.pp(t.message)),r+i},messageDescription:function(){return null===o?"":o instanceof RegExp?" with a message matching "+e.pp(o):" with message "+e.pp(o)},hasNoSpecifics:function(){return null===o&&null===s},matches:function(e){return(null===s||e.constructor===s)&&(null===o||t(e.message))}}}function n(e){return e.name||e.toString().match(/^\s*function\s*(\w*)\s*\(/)[1]}function r(e){return e instanceof RegExp||"string"==typeof e}function i(e){if("function"!=typeof e)return!1;var t=function(){};return t.prototype=e.prototype,new t instanceof Error}return{compare:function(r){var i,o=!1,s={pass:!0},a={pass:!1};if("function"!=typeof r)throw new Error("Actual is not a Function");var u=t.apply(null,arguments);try{r()}catch(c){o=!0,i=c}return o?i instanceof Error?u.hasNoSpecifics()?(s.message="Expected function not to throw an Error, but it threw "+n(i)+".",s):u.matches(i)?(s.message=function(){return"Expected function not to throw "+u.errorTypeDescription+u.messageDescription()+"."},s):(a.message=function(){return"Expected function to throw "+u.errorTypeDescription+u.messageDescription()+", but it threw "+u.thrownDescription(i)+"."},a):(a.message=function(){return"Expected function to throw an Error, but it threw "+e.pp(i)+"."},a):(a.message="Expected function to throw an Error.",a)}}}return t},getJasmineRequireObj().interface=function(e,t){var n={describe:function(e,n){return t.describe(e,n)},xdescribe:function(e,n){return t.xdescribe(e,n)},fdescribe:function(e,n){return t.fdescribe(e,n)},it:function(e,n){return t.it(e,n)},xit:function(e,n){return t.xit(e,n)},fit:function(e,n){return t.fit(e,n)},beforeEach:function(e){return t.beforeEach(e)},afterEach:function(e){return t.afterEach(e)},beforeAll:function(e){return t.beforeAll(e)},afterAll:function(e){return t.afterAll(e)},expect:function(e){return t.expect(e)},pending:function(){return t.pending()},fail:function(){return t.fail.apply(t,arguments)},spyOn:function(e,n){return t.spyOn(e,n)},jsApiReporter:new e.JsApiReporter({timer:new e.Timer}),jasmine:e};return e.addCustomEqualityTester=function(e){t.addCustomEqualityTester(e)},e.addMatchers=function(e){return t.addMatchers(e)},e.clock=function(){return t.clock},n},getJasmineRequireObj().version=function(){return"2.1.3"},jasmineRequire.html=function(e){e.ResultsNode=jasmineRequire.ResultsNode(),e.HtmlReporter=jasmineRequire.HtmlReporter(e),e.QueryString=jasmineRequire.QueryString(),e.HtmlSpecFilter=jasmineRequire.HtmlSpecFilter()},jasmineRequire.HtmlReporter=function(e){function t(t){function r(e){return h().querySelector(".jasmine_html-reporter "+e)}function i(){var e=r("");e&&h().removeChild(e)}function o(e,t){for(var n=d(e),r=2;r<arguments.length;r++){var i=arguments[r];"string"==typeof i?n.appendChild(m(i)):i&&n.appendChild(i)}for(var o in t)"className"==o?n[o]=t[o]:n.setAttribute(o,t[o]);return n}function s(e,t){var n=1==t?e:e+"s";return""+t+" "+n}function a(e){return"?spec="+encodeURIComponent(e.fullName)}function u(e){l.setAttribute("class","jasmine_html-reporter "+e)}function c(e){return e.failedExpectations.length+e.passedExpectations.length===0&&"passed"===e.status}var l,p,f=t.env||{},h=t.getContainer,d=t.createElement,m=t.createTextNode,g=t.onRaiseExceptionsClick||function(){},y=t.timer||n,v=0,b=0,E=0,x=[];this.initialize=function(){i(),l=o("div",{className:"jasmine_html-reporter"},o("div",{className:"banner"},o("a",{className:"title",href:"http://jasmine.github.io/",target:"_blank"}),o("span",{className:"version"},e.version)),o("ul",{className:"symbol-summary"}),o("div",{className:"alert"}),o("div",{className:"results"},o("div",{className:"failures"}))),h().appendChild(l),p=r(".symbol-summary")};var w;this.jasmineStarted=function(e){w=e.totalSpecsDefined||0,y.start()};var S=o("div",{className:"summary"}),R=new e.ResultsNode({},"",null),j=R;this.suiteStarted=function(e){j.addChild(e,"suite"),j=j.last()},this.suiteDone=function(e){"failed"==e.status&&x.push(e),j!=R&&(j=j.parent)},this.specStarted=function(e){j.addChild(e,"spec")};var T=[];return this.specDone=function(e){if(c(e)&&"undefined"!=typeof console&&"undefined"!=typeof console.error&&console.error("Spec '"+e.fullName+"' has no expectations."),"disabled"!=e.status&&v++,p.appendChild(o("li",{className:c(e)?"empty":e.status,id:"spec_"+e.id,title:e.fullName})),"failed"==e.status){b++;for(var t=o("div",{className:"spec-detail failed"},o("div",{className:"description"},o("a",{title:e.fullName,href:a(e)},e.fullName)),o("div",{className:"messages"})),n=t.childNodes[1],r=0;r<e.failedExpectations.length;r++){var i=e.failedExpectations[r];n.appendChild(o("div",{className:"result-message"},i.message)),n.appendChild(o("div",{className:"stack-trace"},i.stack))}T.push(t)}"pending"==e.status&&E++},this.jasmineDone=function(){function e(t,n){for(var r,i=0;i<t.children.length;i++){var s=t.children[i];if("suite"==s.type){var u=o("ul",{className:"suite",id:"suite-"+s.result.id},o("li",{className:"suite-detail"},o("a",{href:a(s.result)},s.result.description)));e(s,u),n.appendChild(u)}if("spec"==s.type){"specs"!=n.getAttribute("class")&&(r=o("ul",{className:"specs"}),n.appendChild(r));var l=s.result.description;c(s.result)&&(l="SPEC HAS NO EXPECTATIONS "+l),r.appendChild(o("li",{className:s.result.status,id:"spec-"+s.result.id},o("a",{href:a(s.result)},l)))}}}var t=r(".banner");t.appendChild(o("span",{className:"duration"},"finished in "+y.elapsed()/1e3+"s"));var n=r(".alert");n.appendChild(o("span",{className:"exceptions"},o("label",{className:"label","for":"raise-exceptions"},"raise exceptions"),o("input",{className:"raise",id:"raise-exceptions",type:"checkbox"})));var i=r("#raise-exceptions");if(i.checked=!f.catchingExceptions(),i.onclick=g,w>v){var l="Ran "+v+" of "+w+" specs - run all";n.appendChild(o("span",{className:"bar skipped"},o("a",{href:"?",title:"Run all specs"},l)))}var p="",h="bar ";for(w>0?(p+=s("spec",v)+", "+s("failure",b),E&&(p+=", "+s("pending spec",E)),h+=b>0?"failed":"passed"):(h+="skipped",p+="No specs found"),n.appendChild(o("span",{className:h},p)),A=0;A<x.length;A++)for(var d=x[A],m=0;m<d.failedExpectations.length;m++){var j="AfterAll "+d.failedExpectations[m].message,F="bar errored";n.appendChild(o("span",{className:F},j))}var C=r(".results");if(C.appendChild(S),e(R,S),T.length){n.appendChild(o("span",{className:"menu bar spec-list"},o("span",{},"Spec List | "),o("a",{className:"failures-menu",href:"#"},"Failures"))),n.appendChild(o("span",{className:"menu bar failure-list"},o("a",{className:"spec-list-menu",href:"#"},"Spec List"),o("span",{}," | Failures "))),r(".failures-menu").onclick=function(){u("failure-list")},r(".spec-list-menu").onclick=function(){u("spec-list")},u("failure-list");for(var N=r(".failures"),A=0;A<T.length;A++)N.appendChild(T[A])}},this}var n={start:function(){},elapsed:function(){return 0}};return t},jasmineRequire.HtmlSpecFilter=function(){function e(e){var t=e&&e.filterString()&&e.filterString().replace(/[-[\]{}()*+?.,\\^$|#\s]/g,"\\$&"),n=new RegExp(t);this.matches=function(e){return n.test(e)}}return e},jasmineRequire.ResultsNode=function(){function e(t,n,r){this.result=t,this.type=n,this.parent=r,this.children=[],this.addChild=function(t,n){this.children.push(new e(t,n,this))},this.last=function(){return this.children[this.children.length-1]}}return e},jasmineRequire.QueryString=function(){function e(e){function t(e){var t=[];for(var n in e)t.push(encodeURIComponent(n)+"="+encodeURIComponent(e[n]));return"?"+t.join("&")}function n(){var t=e.getWindowLocation().search.substring(1),n=[],r={};if(t.length>0){n=t.split("&");for(var i=0;i<n.length;i++){var o=n[i].split("="),s=decodeURIComponent(o[1]);("true"===s||"false"===s)&&(s=JSON.parse(s)),r[decodeURIComponent(o[0])]=s}}return r}return this.setParam=function(r,i){var o=n();o[r]=i,e.getWindowLocation().search=t(o)},this.getParam=function(e){return n()[e]},this}return e},function(){function e(e,t){for(var n in t)e[n]=t[n];return e}window.jasmine=jasmineRequire.core(jasmineRequire),jasmineRequire.html(jasmine);var t=jasmine.getEnv(),n=jasmineRequire.interface(jasmine,t);"undefined"==typeof window&&"object"==typeof exports?e(exports,n):e(window,n);var r=new jasmine.QueryString({getWindowLocation:function(){return window.location}}),i=r.getParam("catch");t.catchExceptions("undefined"==typeof i?!0:i);var o=new jasmine.HtmlReporter({env:t,onRaiseExceptionsClick:function(){r.setParam("catch",!t.catchingExceptions())},getContainer:function(){return document.body},createElement:function(){return document.createElement.apply(document,arguments)},createTextNode:function(){return document.createTextNode.apply(document,arguments)},timer:new jasmine.Timer});t.addReporter(n.jsApiReporter),t.addReporter(o);var s=new jasmine.HtmlSpecFilter({filterString:function(){return r.getParam("spec")}});t.specFilter=function(e){return s.matches(e.getFullName())},window.setTimeout=window.setTimeout,window.setInterval=window.setInterval,window.clearTimeout=window.clearTimeout,window.clearInterval=window.clearInterval;var a=window.onload;window.onload=function(){a&&a(),o.initialize(),t.execute()}}(),getJasmineRequireObj().console=function(e,t){t.ConsoleReporter=e.ConsoleReporter()},getJasmineRequireObj().ConsoleReporter=function(){function e(e){function n(){f("\n")}function r(e,t){return h?y[e]+t+y.none:t}function i(e,t){return 1==t?e:e+"s"}function o(e,t){for(var n=[],r=0;t>r;r++)n.push(e);return n}function s(e,t){for(var n=(e||"").split("\n"),r=[],i=0;i<n.length;i++)r.push(o(" ",t).join("")+n[i]);return r.join("\n")}function a(e){n(),f(e.fullName);for(var t=0;t<e.failedExpectations.length;t++){var r=e.failedExpectations[t];n(),f(s(r.message,2)),f(s(r.stack,2))}n()}function u(e){for(var t=0;t<e.failedExpectations.length;t++)n(),f(r("red","An error was thrown in an afterAll")),n(),f(r("red","AfterAll "+e.failedExpectations[t].message));n()}var c,l,p,f=e.print,h=e.showColors||!1,d=e.onComplete||function(){},m=e.timer||t,g=[],y={green:"[32m",red:"[31m",yellow:"[33m",none:"[0m"},v=[];return f("ConsoleReporter is deprecated and will be removed in a future version."),this.jasmineStarted=function(){c=0,l=0,p=0,f("Started"),n(),m.start()},this.jasmineDone=function(){n();for(var e=0;e<g.length;e++)a(g[e]);if(c>0){n();var t=c+" "+i("spec",c)+", "+l+" "+i("failure",l);p&&(t+=", "+p+" pending "+i("spec",p)),f(t)}else f("No specs found");n();var r=m.elapsed()/1e3;for(f("Finished in "+r+" "+i("second",r)),n(),e=0;e<v.length;e++)u(v[e]);d(0===l)},this.specDone=function(e){return c++,"pending"==e.status?(p++,void f(r("yellow","*"))):"passed"==e.status?void f(r("green",".")):void("failed"==e.status&&(l++,g.push(e),f(r("red","F"))))},this.suiteDone=function(e){e.failedExpectations&&e.failedExpectations.length>0&&(l++,v.push(e))},this}var t={start:function(){},elapsed:function(){return 0}};return e};
+})();
+/*
+    json2.js
+    2014-02-04
+
+    Public Domain.
+
+    NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
+
+    See http://www.JSON.org/js.html
+
+
+    This code should be minified before deployment.
+    See http://javascript.crockford.com/jsmin.html
+
+    USE YOUR OWN COPY. IT IS EXTREMELY UNWISE TO LOAD CODE FROM SERVERS YOU DO
+    NOT CONTROL.
+
+
+    This file creates a global JSON object containing two methods: stringify
+    and parse.
+
+        JSON.stringify(value, replacer, space)
+            value       any JavaScript value, usually an object or array.
+
+            replacer    an optional parameter that determines how object
+                        values are stringified for objects. It can be a
+                        function or an array of strings.
+
+            space       an optional parameter that specifies the indentation
+                        of nested structures. If it is omitted, the text will
+                        be packed without extra whitespace. If it is a number,
+                        it will specify the number of spaces to indent at each
+                        level. If it is a string (such as '\t' or '&nbsp;'),
+                        it contains the characters used to indent at each level.
+
+            This method produces a JSON text from a JavaScript value.
+
+            When an object value is found, if the object contains a toJSON
+            method, its toJSON method will be called and the result will be
+            stringified. A toJSON method does not serialize: it returns the
+            value represented by the name/value pair that should be serialized,
+            or undefined if nothing should be serialized. The toJSON method
+            will be passed the key associated with the value, and this will be
+            bound to the value
+
+            For example, this would serialize Dates as ISO strings.
+
+                Date.prototype.toJSON = function (key) {
+                    function f(n) {
+                        // Format integers to have at least two digits.
+                        return n < 10 ? '0' + n : n;
+                    }
+
+                    return this.getUTCFullYear()   + '-' +
+                         f(this.getUTCMonth() + 1) + '-' +
+                         f(this.getUTCDate())      + 'T' +
+                         f(this.getUTCHours())     + ':' +
+                         f(this.getUTCMinutes())   + ':' +
+                         f(this.getUTCSeconds())   + 'Z';
+                };
+
+            You can provide an optional replacer method. It will be passed the
+            key and value of each member, with this bound to the containing
+            object. The value that is returned from your method will be
+            serialized. If your method returns undefined, then the member will
+            be excluded from the serialization.
+
+            If the replacer parameter is an array of strings, then it will be
+            used to select the members to be serialized. It filters the results
+            such that only members with keys listed in the replacer array are
+            stringified.
+
+            Values that do not have JSON representations, such as undefined or
+            functions, will not be serialized. Such values in objects will be
+            dropped; in arrays they will be replaced with null. You can use
+            a replacer function to replace those with JSON values.
+            JSON.stringify(undefined) returns undefined.
+
+            The optional space parameter produces a stringification of the
+            value that is filled with line breaks and indentation to make it
+            easier to read.
+
+            If the space parameter is a non-empty string, then that string will
+            be used for indentation. If the space parameter is a number, then
+            the indentation will be that many spaces.
+
+            Example:
+
+            text = JSON.stringify(['e', {pluribus: 'unum'}]);
+            // text is '["e",{"pluribus":"unum"}]'
+
+
+            text = JSON.stringify(['e', {pluribus: 'unum'}], null, '\t');
+            // text is '[\n\t"e",\n\t{\n\t\t"pluribus": "unum"\n\t}\n]'
+
+            text = JSON.stringify([new Date()], function (key, value) {
+                return this[key] instanceof Date ?
+                    'Date(' + this[key] + ')' : value;
+            });
+            // text is '["Date(---current time---)"]'
+
+
+        JSON.parse(text, reviver)
+            This method parses a JSON text to produce an object or array.
+            It can throw a SyntaxError exception.
+
+            The optional reviver parameter is a function that can filter and
+            transform the results. It receives each of the keys and values,
+            and its return value is used instead of the original value.
+            If it returns what it received, then the structure is not modified.
+            If it returns undefined then the member is deleted.
+
+            Example:
+
+            // Parse the text. Values that look like ISO date strings will
+            // be converted to Date objects.
+
+            myData = JSON.parse(text, function (key, value) {
+                var a;
+                if (typeof value === 'string') {
+                    a =
+/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/.exec(value);
+                    if (a) {
+                        return new Date(Date.UTC(+a[1], +a[2] - 1, +a[3], +a[4],
+                            +a[5], +a[6]));
+                    }
+                }
+                return value;
+            });
+
+            myData = JSON.parse('["Date(09/09/2001)"]', function (key, value) {
+                var d;
+                if (typeof value === 'string' &&
+                        value.slice(0, 5) === 'Date(' &&
+                        value.slice(-1) === ')') {
+                    d = new Date(value.slice(5, -1));
+                    if (d) {
+                        return d;
+                    }
+                }
+                return value;
+            });
+
+
+    This is a reference implementation. You are free to copy, modify, or
+    redistribute.
+*/
+
+/*jslint evil: true, regexp: true */
+
+/*members "", "\b", "\t", "\n", "\f", "\r", "\"", JSON, "\\", apply,
+    call, charCodeAt, getUTCDate, getUTCFullYear, getUTCHours,
+    getUTCMinutes, getUTCMonth, getUTCSeconds, hasOwnProperty, join,
+    lastIndex, length, parse, prototype, push, replace, slice, stringify,
+    test, toJSON, toString, valueOf
+*/
+
+
+// Create a JSON object only if one does not already exist. We create the
+// methods in a closure to avoid creating global variables.
+
+if (typeof JSON !== 'object') {
+    JSON = {};
+}
+
+(function () {
+    'use strict';
+
+    function f(n) {
+        // Format integers to have at least two digits.
+        return n < 10 ? '0' + n : n;
+    }
+
+    if (typeof Date.prototype.toJSON !== 'function') {
+
+        Date.prototype.toJSON = function () {
+
+            return isFinite(this.valueOf())
+                ? this.getUTCFullYear()     + '-' +
+                    f(this.getUTCMonth() + 1) + '-' +
+                    f(this.getUTCDate())      + 'T' +
+                    f(this.getUTCHours())     + ':' +
+                    f(this.getUTCMinutes())   + ':' +
+                    f(this.getUTCSeconds())   + 'Z'
+                : null;
+        };
+
+        String.prototype.toJSON      =
+            Number.prototype.toJSON  =
+            Boolean.prototype.toJSON = function () {
+                return this.valueOf();
+            };
+    }
+
+    var cx,
+        escapable,
+        gap,
+        indent,
+        meta,
+        rep;
+
+
+    function quote(string) {
+
+// If the string contains no control characters, no quote characters, and no
+// backslash characters, then we can safely slap some quotes around it.
+// Otherwise we must also replace the offending characters with safe escape
+// sequences.
+
+        escapable.lastIndex = 0;
+        return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
+            var c = meta[a];
+            return typeof c === 'string'
+                ? c
+                : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+        }) + '"' : '"' + string + '"';
+    }
+
+
+    function str(key, holder) {
+
+// Produce a string from holder[key].
+
+        var i,          // The loop counter.
+            k,          // The member key.
+            v,          // The member value.
+            length,
+            mind = gap,
+            partial,
+            value = holder[key];
+
+// If the value has a toJSON method, call it to obtain a replacement value.
+
+        if (value && typeof value === 'object' &&
+                typeof value.toJSON === 'function') {
+            value = value.toJSON(key);
+        }
+
+// If we were called with a replacer function, then call the replacer to
+// obtain a replacement value.
+
+        if (typeof rep === 'function') {
+            value = rep.call(holder, key, value);
+        }
+
+// What happens next depends on the value's type.
+
+        switch (typeof value) {
+        case 'string':
+            return quote(value);
+
+        case 'number':
+
+// JSON numbers must be finite. Encode non-finite numbers as null.
+
+            return isFinite(value) ? String(value) : 'null';
+
+        case 'boolean':
+        case 'null':
+
+// If the value is a boolean or null, convert it to a string. Note:
+// typeof null does not produce 'null'. The case is included here in
+// the remote chance that this gets fixed someday.
+
+            return String(value);
+
+// If the type is 'object', we might be dealing with an object or an array or
+// null.
+
+        case 'object':
+
+// Due to a specification blunder in ECMAScript, typeof null is 'object',
+// so watch out for that case.
+
+            if (!value) {
+                return 'null';
+            }
+
+// Make an array to hold the partial results of stringifying this object value.
+
+            gap += indent;
+            partial = [];
+
+// Is the value an array?
+
+            if (Object.prototype.toString.apply(value) === '[object Array]') {
+
+// The value is an array. Stringify every element. Use null as a placeholder
+// for non-JSON values.
+
+                length = value.length;
+                for (i = 0; i < length; i += 1) {
+                    partial[i] = str(i, value) || 'null';
+                }
+
+// Join all of the elements together, separated with commas, and wrap them in
+// brackets.
+
+                v = partial.length === 0
+                    ? '[]'
+                    : gap
+                    ? '[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']'
+                    : '[' + partial.join(',') + ']';
+                gap = mind;
+                return v;
+            }
+
+// If the replacer is an array, use it to select the members to be stringified.
+
+            if (rep && typeof rep === 'object') {
+                length = rep.length;
+                for (i = 0; i < length; i += 1) {
+                    if (typeof rep[i] === 'string') {
+                        k = rep[i];
+                        v = str(k, value);
+                        if (v) {
+                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                        }
+                    }
+                }
+            } else {
+
+// Otherwise, iterate through all of the keys in the object.
+
+                for (k in value) {
+                    if (Object.prototype.hasOwnProperty.call(value, k)) {
+                        v = str(k, value);
+                        if (v) {
+                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                        }
+                    }
+                }
+            }
+
+// Join all of the member texts together, separated with commas,
+// and wrap them in braces.
+
+            v = partial.length === 0
+                ? '{}'
+                : gap
+                ? '{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}'
+                : '{' + partial.join(',') + '}';
+            gap = mind;
+            return v;
+        }
+    }
+
+// If the JSON object does not yet have a stringify method, give it one.
+
+    if (typeof JSON.stringify !== 'function') {
+        escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
+        meta = {    // table of character substitutions
+            '\b': '\\b',
+            '\t': '\\t',
+            '\n': '\\n',
+            '\f': '\\f',
+            '\r': '\\r',
+            '"' : '\\"',
+            '\\': '\\\\'
+        };
+        JSON.stringify = function (value, replacer, space) {
+
+// The stringify method takes a value and an optional replacer, and an optional
+// space parameter, and returns a JSON text. The replacer can be a function
+// that can replace values, or an array of strings that will select the keys.
+// A default replacer method can be provided. Use of the space parameter can
+// produce text that is more easily readable.
+
+            var i;
+            gap = '';
+            indent = '';
+
+// If the space parameter is a number, make an indent string containing that
+// many spaces.
+
+            if (typeof space === 'number') {
+                for (i = 0; i < space; i += 1) {
+                    indent += ' ';
+                }
+
+// If the space parameter is a string, it will be used as the indent string.
+
+            } else if (typeof space === 'string') {
+                indent = space;
+            }
+
+// If there is a replacer, it must be a function or an array.
+// Otherwise, throw an error.
+
+            rep = replacer;
+            if (replacer && typeof replacer !== 'function' &&
+                    (typeof replacer !== 'object' ||
+                    typeof replacer.length !== 'number')) {
+                throw new Error('JSON.stringify');
+            }
+
+// Make a fake root object containing our value under the key of ''.
+// Return the result of stringifying the value.
+
+            return str('', {'': value});
+        };
+    }
+
+
+// If the JSON object does not yet have a parse method, give it one.
+
+    if (typeof JSON.parse !== 'function') {
+        cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
+        JSON.parse = function (text, reviver) {
+
+// The parse method takes a text and an optional reviver function, and returns
+// a JavaScript value if the text is a valid JSON text.
+
+            var j;
+
+            function walk(holder, key) {
+
+// The walk method is used to recursively walk the resulting structure so
+// that modifications can be made.
+
+                var k, v, value = holder[key];
+                if (value && typeof value === 'object') {
+                    for (k in value) {
+                        if (Object.prototype.hasOwnProperty.call(value, k)) {
+                            v = walk(value, k);
+                            if (v !== undefined) {
+                                value[k] = v;
+                            } else {
+                                delete value[k];
+                            }
+                        }
+                    }
+                }
+                return reviver.call(holder, key, value);
+            }
+
+
+// Parsing happens in four stages. In the first stage, we replace certain
+// Unicode characters with escape sequences. JavaScript handles many characters
+// incorrectly, either silently deleting them, or treating them as line endings.
+
+            text = String(text);
+            cx.lastIndex = 0;
+            if (cx.test(text)) {
+                text = text.replace(cx, function (a) {
+                    return '\\u' +
+                        ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+                });
+            }
+
+// In the second stage, we run the text against regular expressions that look
+// for non-JSON patterns. We are especially concerned with '()' and 'new'
+// because they can cause invocation, and '=' because it can cause mutation.
+// But just to be safe, we want to reject all unexpected forms.
+
+// We split the second stage into 4 regexp operations in order to work around
+// crippling inefficiencies in IE's and Safari's regexp engines. First we
+// replace the JSON backslash pairs with '@' (a non-JSON character). Second, we
+// replace all simple value tokens with ']' characters. Third, we delete all
+// open brackets that follow a colon or comma or that begin the text. Finally,
+// we look to see that the remaining characters are only whitespace or ']' or
+// ',' or ':' or '{' or '}'. If that is so, then the text is safe for eval.
+
+            if (/^[\],:{}\s]*$/
+                    .test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, '@')
+                        .replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']')
+                        .replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
+
+// In the third stage we use the eval function to compile the text into a
+// JavaScript structure. The '{' operator is subject to a syntactic ambiguity
+// in JavaScript: it can begin a block or an object literal. We wrap the text
+// in parens to eliminate the ambiguity.
+
+                j = eval('(' + text + ')');
+
+// In the optional fourth stage, we recursively walk the new structure, passing
+// each name/value pair to a reviver function for possible transformation.
+
+                return typeof reviver === 'function'
+                    ? walk({'': j}, '')
+                    : j;
+            }
+
+// If the text is not JSON parseable, then a SyntaxError is thrown.
+
+            throw new SyntaxError('JSON.parse');
+        };
+    }
+}());

@@ -1,19 +1,53 @@
-# Usage
+# Jasmine-standalone [![Bower version][bower-image]][bower]
+
+> Jasmine-browser full-stack file.
+
+## Installation
+```Bash
+$ bower install jasmine-standalone
+```
+
+index.html:
+
 ```html
-<script src="jasmine-standalone.js"></script>
+<script src="bower_components/jasmine-standalone/jasmine-standalone.js"></script>
 <script>
-  describe('Specs',function(){
-    describe('first',function(){
-      it('Begin bdd.',function(){
-        expect("hello world!").toMatch('hell');
-      });
-      it('End of bdd.',function(){
-        expect("world end!").not.toMatch('hell');
+  describe('XMLHttpRequest',function(){
+    describe('http://static.edgy.black',function(){
+      it('<title> is static.edgy.black',function(done){
+        xhr= new XMLHttpRequest;
+        xhr.open('GET','http://static.edgy.black',true);
+        xhr.responseType= 'text/html';
+        xhr.send();
+        xhr.onload= function(){
+          var parsed= $.parseHTML(xhr.response);
+          var html= $('<div />').append(parsed);
+          var textContent= html.find('h1').text();
+          
+          expect(textContent).toBe('static.edgy.black');
+          done();
+        }
       });
     });
   });
 </script>
 ```
-![](https://qiita-image-store.s3.amazonaws.com/0/12153/114dc302-c38b-1acf-f40e-ffc841c28118.gif)
 
-[以上！](http://qiita.com/uriuriuriu/items/7be0ed117ab8ae3e7f79#5-%E3%81%A4%E3%81%A3%E3%81%A6%E3%82%82%E9%87%8D%E3%81%8F%E3%81%AA%E3%81%84)
+## API
+
+> http://jasmine.github.io/2.3/introduction.html
+
+## Build
+```bash
+$ npm install
+$ npm run build
+```
+
+License
+===
+[MIT][License]
+
+[License]: http://59naga.mit-license.org/
+
+[bower-image]: https://badge.fury.io/bo/jaggy.svg
+[bower]: http://badge.fury.io/bo/jaggy
